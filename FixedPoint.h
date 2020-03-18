@@ -1,4 +1,4 @@
-#include <iostream>
+#include <iosfwd>
 #include <string>
 
 template <int INT_BITS, int FRAC_BITS>
@@ -6,14 +6,14 @@ class FixedPoint
 {
     static_assert(INT_BITS <= 32, "Integer bits should be less than or equal to 32 bits.");
     static_assert(FRAC_BITS <= 32, "Fractional bits should be less than or equal to 32 bits.");
-    const long long SHIFT_MASK = (1 << INT_BITS+32)-1 & ((1 << FRAC_BITS)-1 << 32-FRAC_BITS);
+    const long long SHIFT_MASK = (1ll << INT_BITS+32)-1 | ((1ll << FRAC_BITS)-1 << 32-FRAC_BITS);
 
     /*
      * Long long is guaranteed to be atleast 64-bits wide. We use the 32 most 
      * significant bits to store the integer part and the 32 least significant
      * bits to store the fraction.
      */
-    long long num;
+    long long num{};
 
     /*
      * Friend declaration for accessing 'num' between different types, i.e, 
@@ -23,18 +23,29 @@ class FixedPoint
     friend class FixedPoint;
 
 public:
-    FixedPoint( ) { }
-    FixedPoint(double a) { }
+    FixedPoint() = default;
+    FixedPoint(double a)
+    { 
+        // Extract integer part.
+        num = static_cast<long long>(a) << 32;
+
+        // Extract fractional part.
+        double fraction = (a - static_cast<long long>(a)) * (1ll << FRAC_BITS);
+        num |= static_cast<long long>(fraction) << (32-FRAC_BITS);
+        num &= SHIFT_MASK;
+    }
 
     /*
      * Basic getters and setters.
      */
+    int get_int_bits() const { return INT_BITS; }
+    int get_frac_bits() const { return FRAC_BITS; }
     long get_int() const { return static_cast<long>((num >> 32) & 0xFFFFFFFF); }
     long get_frac() const { return static_cast<long>(num & 0xFFFFFFFF); }
     std::string get_frac_quotient() const 
     { 
         std::string numerator = std::to_string((num & 0xFFFFFFFF) >> 32-FRAC_BITS);
-        std::string denominator = std::to_string(1 << FRAC_BITS);
+        std::string denominator = std::to_string(1ll << FRAC_BITS);
         return numerator + "/" + denominator;
     }
 
@@ -83,17 +94,4 @@ template <int INT_BITS, int FRAC_BITS>
 std::ostream &operator<<(std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
 {
     return os << rhs.get_int() << " + " << rhs.get_frac_quotient();
-}
-
-int main()
-{
-    FixedPoint<5,5> n;
-    FixedPoint<4,4> m;
-    FixedPoint<6,6> o;
-    n = 5;
-    m = 2;
-    o = n + m;
-    std::cout << o << std::endl;
-    std::cout << o/2 << std::endl;
-    return 0;
 }
