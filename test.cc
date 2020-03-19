@@ -12,9 +12,9 @@ TEST_CASE("Template arguments")
 TEST_CASE("Floating-point constructor")
 {
     std::stringstream result{};
-    FixedPoint<10,10> fix_a{ 3.25 };
-    result << fix_a;
-    REQUIRE(result.str() == std::string("3 + 256/1024"));
+    FixedPoint<10,10> fix_a{ 3.25 }, fix_b{ -19.125 };
+    result << fix_a << "|" << fix_b;
+    REQUIRE(result.str() == std::string("3 + 256/1024|-19 - 128/1024"));
 }
 
 TEST_CASE("Addition")
