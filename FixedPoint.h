@@ -1,6 +1,6 @@
 #include <iosfwd>
 #include <string>
-#include <iostream>
+#include <cmath>
 
 template <int INT_BITS, int FRAC_BITS>
 class FixedPoint
@@ -95,7 +95,7 @@ public:
     /*
      * Conversion to double precision floating point number.
      */
-    operator double() const noexcept
+    explicit operator double() const noexcept
     {
         return static_cast<double>(num) / static_cast<double>(1ll << 32);
     }
@@ -110,6 +110,23 @@ public:
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->num + rhs.num;
+        res.round();
+        return res;
+    }
+
+    /*
+     * Multilication of FixedPoint numbers.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS>
+        operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
+    {
+        // To utilize as much of the 64 bit range as we can, we start of by 
+        // shifting down both factors to the LSb side.
+        FixedPoint<INT_BITS, FRAC_BITS> res;
+        long long op_a = this->num >> (32 - FRAC_BITS);
+        long long op_b = rhs.num >> (32 - RHS_FRAC_BITS);
+        res.num = (op_a * op_b) << (32 - FRAC_BITS - RHS_FRAC_BITS);
         res.round();
         return res;
     }

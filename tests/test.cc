@@ -61,3 +61,12 @@ TEST_CASE("Addition")
     result << fix_a + fix_b;
     REQUIRE(result.str() == std::string("10 + 768/1024"));
 }
+
+TEST_CASE("Multiplication of Fixed Point Numbers")
+{
+    std::stringstream result{};
+    FixedPoint<10,10> fix_a = { 3.25 };
+    FixedPoint<12,12> fix_b = { 1.925 };
+    result << fix_b * fix_a;
+    REQUIRE(result.str() == std::string("6 + 1050/4096"));
+}
