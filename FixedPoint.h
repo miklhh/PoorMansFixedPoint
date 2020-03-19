@@ -1,12 +1,14 @@
 #include <iosfwd>
 #include <string>
+#include <iostream>
 
 template <int INT_BITS, int FRAC_BITS>
 class FixedPoint
 {
-    static_assert(INT_BITS <= 32, "Integer bits should be less than or equal to 32 bits.");
-    static_assert(FRAC_BITS <= 32, "Fractional bits should be less than or equal to 32 bits.");
-    const long long SHIFT_MASK = (1ll << (INT_BITS+32))-1 | (((1ll << FRAC_BITS)-1) << (32-FRAC_BITS));
+    static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
+    static_assert(FRAC_BITS <= 32, "Fractional bits need to be less than or equal to 32 bits.");
+    static_assert(INT_BITS + FRAC_BITS > 0, "Need at least one bit of representation.");
+    const long long BIT_MASK = ((1ll << INT_BITS+FRAC_BITS) - 1) << (32 - FRAC_BITS);
 
     /*
      * Long long is guaranteed to be atleast 64-bits wide. We use the 32 most 
@@ -17,7 +19,7 @@ class FixedPoint
 
     /*
      * Friend declaration for accessing 'num' between different types, i.e, 
-     * between instances with different wordlenth.
+     * between template instances with different wordlenth.
      */
     template <int _INT_BITS, int _FRAC_BITS>
     friend class FixedPoint;
@@ -27,6 +29,23 @@ class FixedPoint
      */
     template <int _INT_BITS, int _FRAC_BITS>
     friend std::ostream &operator<<(std::ostream &os, const FixedPoint<_INT_BITS, _FRAC_BITS> &rhs);
+
+    /*
+     * Private rounding function, for rounding before applying the shift mask
+     * (when appropriate). Rounding without applying the mask afterwards causes
+     * undefined behaviour.
+     */
+    void round() noexcept
+    {
+        if ( (1ll << (31-FRAC_BITS)) & num )
+        {
+            // Rounding needed.
+            num += 1ll << (32-FRAC_BITS);
+        }
+
+        // Apply the bit mask.
+        num &= BIT_MASK;
+    }
 
 public:
     FixedPoint() = default;
@@ -39,10 +58,8 @@ public:
         // Shifting a negative signed value is implementation defined: (ISO/IEC 
         // 9899:1999 Section 6.5.7). For GNU g++ (9.2.0) and CLANG++ (8.0.1) 
         // this solution seems to work.
-        double fraction = (a - static_cast<long long>(a)) * (1ll << FRAC_BITS);
-        num  = static_cast<long long>(a) << 32;
-        num |= static_cast<long long>(std::abs(fraction)) << (32-FRAC_BITS);
-        num &= SHIFT_MASK;
+        num = std::round(a * static_cast<double>(1ll << 32));
+        round();
     }
 
     /*
@@ -60,18 +77,27 @@ public:
     }
 
     /*
-     * Assigment of FixedPoint numbers.
+     * Assigment operators of FixedPoint numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs)
     {
         this->num = rhs.num;
-        num &= SHIFT_MASK;
+        round();
         return *this;
     }
     FixedPoint<INT_BITS, FRAC_BITS> &operator=(int rhs)
     {
         this->num = static_cast<long long>(rhs) << 32;
+        round();
+    }
+
+    /*
+     * Conversion to double precision floating point number.
+     */
+    operator double() const noexcept
+    {
+        return static_cast<double>(num) / static_cast<double>(1ll << 32);
     }
 
     /*
@@ -84,7 +110,7 @@ public:
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->num + rhs.num;
-        res.num &= SHIFT_MASK;
+        res.round();
         return res;
     }
 
@@ -97,7 +123,7 @@ public:
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->num / rhs;
-        res.num &= SHIFT_MASK;
+        res.round();
         return res;
     }
 };
@@ -110,7 +136,7 @@ std::ostream &operator<<(std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS>
     {
         // Sign extend such that the number is interpreted correctly by C++.
         int integer = rhs.get_int() | ~((1 << INT_BITS) - 1);
-        return os << integer << " - " << rhs.get_frac_quotient();
+        return os << integer << " + " << rhs.get_frac_quotient();
     }
     else
     {
