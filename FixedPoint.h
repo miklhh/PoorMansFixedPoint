@@ -45,10 +45,13 @@ class FixedPoint
      */
     void round() noexcept
     {
-        if ( (1ll << (31-FRAC_BITS)) & num )
+        if (FRAC_BITS < 32)
         {
-            // Rounding needed.
-            num += 1ll << (32-FRAC_BITS);
+            if ( (1ll << (31-FRAC_BITS)) & num )
+            {
+                // Rounding needed.
+                num += 1ll << (32-FRAC_BITS);
+            }
         }
 
         // Apply the bit mask.
