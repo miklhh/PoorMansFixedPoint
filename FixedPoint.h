@@ -6,7 +6,7 @@
  * Author: Mikael Henriksson
  */
 
-#include <iosfwd>
+#include <ostream>
 #include <string>
 #include <cmath>
 
