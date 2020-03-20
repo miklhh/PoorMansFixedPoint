@@ -1,3 +1,11 @@
+/*
+ * PoorMansFixedPoint header only C++ fixed point module. It supports fixed
+ * point numbers of varying length and the most basic arithmetic functions 
+ * +,-,*,/ with proper rounding.
+ *
+ * Author: Mikael Henriksson
+ */
+
 #include <iosfwd>
 #include <string>
 #include <cmath>
@@ -63,12 +71,32 @@ public:
     }
 
     /*
+     * Constructor for manually setting bot int and frac part.
+     */
+    FixedPoint(int i, unsigned f)
+    {
+        set_int(i);
+        set_frac(f);
+    }
+
+    /*
      * Basic getters and setters.
      */
     int get_int_bits() const noexcept { return INT_BITS; }
     int get_frac_bits() const noexcept { return FRAC_BITS; }
     int get_int() const noexcept { return static_cast<int>(num >> 32); }
-    int get_frac() const noexcept { return static_cast<int>(num & 0xFFFFFFFF); }
+    int get_frac() const noexcept { return static_cast<int>(num & 0xFFFFFFFFll); }
+    void set_int(int i) noexcept 
+    { 
+        num = (static_cast<long long>(i) << 32) | (0xFFFFFFFFll & num);
+        round();
+    }
+    void set_frac(unsigned f) noexcept 
+    {
+        num &= 0xFFFFFFFF00000000ll;
+        num |= 0xFFFFFFFFll & (static_cast<long long>(f) << (32 - FRAC_BITS));
+        round();
+    }
     std::string get_frac_quotient() const noexcept
     { 
         std::string numerator = std::to_string((num & 0xFFFFFFFF) >> (32-FRAC_BITS));
@@ -93,7 +121,7 @@ public:
     }
 
     /*
-     * Conversion to double precision floating point number.
+     * Conversion to floating point number.
      */
     explicit operator double() const noexcept
     {
@@ -101,17 +129,42 @@ public:
     }
 
     /*
-     * Addition of FixedPoint numbers. Result will have word length equal to
+     * Addition/subtraction of FixedPoint numbers. Result will have word length equal to
      * that of the left hand side of the operator.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> 
-        operator+(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const
+        operator+(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const noexcept
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->num + rhs.num;
         res.round();
         return res;
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator+=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+    {
+        this->num += rhs.num;
+        this->round();
+        return *this;
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS> 
+        operator-(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        FixedPoint<INT_BITS, FRAC_BITS> res;
+        res.num = this->num - rhs.num;
+        res.round();
+        return res;
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator-=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+    {
+        this->num -= rhs.num;
+        this->round();
+        return *this;
     }
 
     /*
@@ -126,15 +179,51 @@ public:
         FixedPoint<INT_BITS, FRAC_BITS> res;
         long long op_a = this->num >> (32 - FRAC_BITS);
         long long op_b = rhs.num >> (32 - RHS_FRAC_BITS);
-        res.num = (op_a * op_b) << (32 - FRAC_BITS - RHS_FRAC_BITS);
+
+        // Sign extend numbers when propriate.
+        if ( op_a & (1ll << (INT_BITS+FRAC_BITS-1)) )
+        {
+            op_a |= ~((1ll << (INT_BITS+FRAC_BITS)) - 1);
+        }
+        if ( op_b & (1ll << (RHS_INT_BITS+RHS_FRAC_BITS-1)) )
+        {
+            op_b |= ~((1ll << (RHS_INT_BITS+RHS_FRAC_BITS)) - 1);
+        }
+
+        // Store result.
+        if (FRAC_BITS + RHS_FRAC_BITS <= 32)
+        {
+            res.num = (op_a * op_b) << (32 - FRAC_BITS - RHS_FRAC_BITS);
+        }
+        else
+        {
+            res.num = (op_a * op_b) >> (FRAC_BITS + RHS_FRAC_BITS - 32);
+        }
         res.round();
         return res;
     }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator*=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+    {
+        FixedPoint<INT_BITS, FRAC_BITS> res{ *this * rhs };
+        this->num = res.num;
+        return *this;
+    }
 
     /*
-     * Division of FixedPoint numbers. Result will have word length equal to
-     * that of the left hand side of the operator.
+     * Division of FixedPoint numbers with integers. Result will have word 
+     * length equal to that of the left hand side of the operator.
      */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS>
+        operator/(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
+    {
+        // To retain as much precision as possible, operands should be left
+        // adjusted before performing the division.
+        return *this;
+    }
+
     FixedPoint<INT_BITS, FRAC_BITS> 
         operator/(int rhs) const
     {
@@ -145,6 +234,10 @@ public:
     }
 };
 
+/*
+ * Print-out to C++ stream object on the form '<int> + <frac>/<2^<frac_bits>'.
+ * Good for debuging'n'stuff.
+ */
 template <int INT_BITS, int FRAC_BITS>
 std::ostream &operator<<(std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
 {
