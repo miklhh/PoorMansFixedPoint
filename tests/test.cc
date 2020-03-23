@@ -136,10 +136,49 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
 
 }
 
+TEST_CASE("Fixed point division")
+{
+    /*
+     * Simple introductory test.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<13,22> fix_a = { 7.60 };
+        FixedPoint<14,17> fix_b = { 3.40 };
+        result << fix_a/fix_b;
+        REQUIRE(result.str() == std::string("2 + 986891/4194304"));
+    }
+
+    /*
+     * Negative operands.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<6,23> fix_a = { -7.60 };
+        FixedPoint<5,20> fix_b = { 3.40 };
+        result << fix_a/fix_b;
+        REQUIRE(result.str() == std::string("-3 + 6414816/8388608"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<6,23> fix_a = { 7.60 };
+        FixedPoint<5,20> fix_b = { -3.40 };
+        result << fix_a/fix_b;
+        REQUIRE(result.str() == std::string("-3 + 6414816/8388608"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,23> fix_a = { -7.60 };
+        FixedPoint<5,25> fix_b = { -3.40 };
+        result << fix_a/fix_b;
+        REQUIRE(result.str() == std::string("2 + 1973790/8388608"));
+    }
+}
+
 TEST_CASE("Approximate pi using Leibniz formula")
 {
     /*
-     * 10 000 000 iterations of Leibniz formula should result in a number close 
+     * 10 000 000 iterations of Leibniz formula should result in a number close
      * to pi, correct up to 7 decimals (including the 3) when correctly rounded.
      */
     const double pi = 3.1415926535;
@@ -178,8 +217,8 @@ TEST_CASE("Approximate e with Bernoulli limit.")
 {
     /*
      * A note on this approch. Since the sum of fractional bits of the left hand
-     * side and the right hand side of the multiplication is greater than 32, we 
-     * are going to lose some precision at the for the performed product. There 
+     * side and the right hand side of the multiplication is greater than 32, we
+     * are going to lose some precision at the for the performed product. There
      * is no point of taking this algorithm further then it is already taken, it
      * won't yield more significant digits.
      */
