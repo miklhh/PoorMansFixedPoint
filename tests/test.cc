@@ -28,7 +28,29 @@ TEST_CASE("Assigment of FixedPoint values (just need to compile).")
     FixedPoint<10,10> fix_a{}, fix_b{};
     FixedPoint<10,10> fix_c = fix_a * fix_b;
     fix_c = fix_a * fix_b;
+}
 
+TEST_CASE("Unary negation.")
+{
+    /* 
+     * Test all 'sides'.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<12,12> fix_a{ 12.25 }, fix_b{ -17.05 }, fix_c{ 0.0 };
+        result << -fix_a << "|" << -fix_b << "|" << -fix_c;
+        REQUIRE(result.str() == std::string("-13 + 3072/4096|17 + 205/4096|0 + 0/4096"));
+    }
+
+    /*
+     * -FIX_MIN = FIX_MIN due to overflow.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<9,9> fix{ -256.0 };
+        result << -fix;
+        REQUIRE(result.str() == std::string("-256 + 0/512"));
+    }
 }
 
 

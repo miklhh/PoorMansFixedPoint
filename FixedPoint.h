@@ -150,6 +150,21 @@ public:
     }
 
     /*
+     * Unary negation operator.
+     */
+    FixedPoint<INT_BITS, FRAC_BITS> operator-() const noexcept
+    {
+        FixedPoint<INT_BITS, FRAC_BITS> fix_res{};
+        long long extended = this->num;
+        unsigned long long mask = ((1ull << (32+INT_BITS)) - 1);
+        long long res = static_cast<long long>(static_cast<unsigned long long>(extended) | ~mask);
+        
+        fix_res.num = -res;
+        fix_res.round();
+        return fix_res;
+    }
+
+    /*
      * Addition/subtraction of FixedPoint numbers. Result will have word length equal to
      * that of the left hand side of the operator.
      */
