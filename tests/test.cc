@@ -12,6 +12,17 @@ TEST_CASE("Template arguments")
     REQUIRE(fix_a.get_frac_bits() == 3);
 }
 
+TEST_CASE("Instance going out of scope should reset value.")
+{
+    for (int i=0; i<5; ++i)
+    {
+        FixedPoint<10,12> fix{ 0.0 };
+        fix += FixedPoint<10,12>(i);
+        fix /= 2;
+        REQUIRE( static_cast<double>(fix) == static_cast<double>(i) / 2 );
+    }
+}
+
 
 TEST_CASE("Floating-point constructor")
 {
@@ -55,6 +66,14 @@ TEST_CASE("Floating-point constructor")
         REQUIRE(result.str() == std::string("0 + 0/4096|-1 + 4095/4096"));
     }
 
+}
+
+TEST_CASE("Fixed point to floating point conversion introductory test.")
+{
+    FixedPoint<6,10> fix_a{ -5.25 };
+    FixedPoint<9,16> fix_b{ 2.33 };
+    REQUIRE(static_cast<double>(fix_a) == -5.25);
+    REQUIRE(std::abs(static_cast<double>(fix_b) -2.33) < 0.0001);
 }
 
 
@@ -250,24 +269,28 @@ TEST_CASE("Conversion from BIG fixed point numbers to floating point conversion.
     double b_ref{ 536870911.16666666604 };
     double b_error{ std::abs(b_ref - static_cast<double>(b)) };
 
-    FixedPoint<31,31> c{ 1073741823, 195225786 };
-    double c_ref{ 1073741823.09090909082 };
+//    FixedPoint<31,31> c{ 1073741823, 195225786 };
+//    double c_ref{ 1073741823.09090909082 };
+//    double c_error{ std::abs(c_ref - static_cast<double>(c)) };
+
+    FixedPoint<31,31> c{ -1073741823, 195225801 };
+    double c_ref{ -1073741822.9090909018 };
     double c_error{ std::abs(c_ref - static_cast<double>(c)) };
 
     std::cout << "Result from BIG fixed point to floating point conversion:" << std::endl;
-    std::cout.width(40); std::cout << "Reference";
-    std::cout.width(35); std::cout << "Fixed->Float     | Error" << std::endl;
+    std::cout.width(41); std::cout << "Reference";
+    std::cout.width(36); std::cout << "Fixed->Float      | Error" << std::endl;
     std::cout.precision(20);
-    std::cout << "    FixedPoint<29,29>: "; std::cout.width(22);
-    std::cout << a_ref; std::cout.width(22); std::cout << static_cast<double>(a);
+    std::cout << "    FixedPoint<29,29>: "; std::cout.width(23);
+    std::cout << a_ref; std::cout.width(23); std::cout << static_cast<double>(a);
     std::cout << " | "; std::cout.width(3); std::cout << a_error << std::endl;
 
-    std::cout << "    FixedPoint<30,30>: "; std::cout.width(22);
-    std::cout << b_ref; std::cout.width(22); std::cout << static_cast<double>(b);
+    std::cout << "    FixedPoint<30,30>: "; std::cout.width(23);
+    std::cout << b_ref; std::cout.width(23); std::cout << static_cast<double>(b);
     std::cout << " | "; std::cout.width(3); std::cout << b_error << std::endl;
 
-    std::cout << "    FixedPoint<31,31>: "; std::cout.width(22);
-    std::cout << c_ref; std::cout.width(22); std::cout << static_cast<double>(c);
+    std::cout << "    FixedPoint<31,31>: "; std::cout.width(23);
+    std::cout << c_ref; std::cout.width(23); std::cout << static_cast<double>(c);
     std::cout << " | "; std::cout.width(3); std::cout << c_error << std::endl;
 
     // Error should be very small.

@@ -10,7 +10,7 @@
 #include <string>
 #include <cmath>
 
-template <int INT_BITS, int FRAC_BITS>
+template <int INT_BITS, int FRAC_BITS, void (*PRINT_FUNC)(std::string) = nullptr>
 class FixedPoint
 {
     static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
@@ -29,7 +29,7 @@ class FixedPoint
      * Friend declaration for accessing 'num' between different types, i.e,
      * between template instances with different wordlenth.
      */
-    template <int _INT_BITS, int _FRAC_BITS>
+    template <int _INT_BITS, int _FRAC_BITS, void (*_PRINT_FUNC)(std::string)>
     friend class FixedPoint;
 
     /*
@@ -128,7 +128,17 @@ public:
      */
     explicit operator double() const noexcept
     {
-        return static_cast<double>(num) / static_cast<double>(1ll << 32);
+        // Test if sign extension is needed.
+        if (num & (1ll << (31+INT_BITS)))
+        {
+            return static_cast<double>(num | ~((1ll << (32+INT_BITS)) - 1)) / 
+                   static_cast<double>(1ll << 32);
+        }
+        else
+        {
+            return static_cast<double>(num) / 
+                   static_cast<double>(1ll << 32);
+        }
     }
 
     /*
@@ -237,9 +247,13 @@ public:
 
         // Shift result to the correct middle.
         if (INT_BITS + RHS_FRAC_BITS < 32)
-            quotient >>= 32 - INT_BITS - RHS_FRAC_BITS;
+        {
+            quotient >>= (32 - INT_BITS - RHS_FRAC_BITS);
+        }
         else
-            quotient <<= INT_BITS + RHS_FRAC_BITS - 32;
+        {
+            quotient <<= (INT_BITS + RHS_FRAC_BITS - 32);
+        }
 
         res.num = quotient;
         res.round();
@@ -252,6 +266,13 @@ public:
         res.num = this->num / rhs;
         res.round();
         return res;
+    }
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator/=(int rhs)
+    {
+        this->num /= rhs;
+        this->round();
+        return *this;
     }
 };
 
