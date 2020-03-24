@@ -16,7 +16,7 @@ class FixedPoint
     static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
     static_assert(FRAC_BITS <= 32, "Fractional bits need to be less than or equal to 32 bits.");
     static_assert(INT_BITS + FRAC_BITS > 0, "Need at least one bit of representation.");
-    const long long BIT_MASK = ((1ll << INT_BITS+FRAC_BITS) - 1) << (32 - FRAC_BITS);
+    const long long BIT_MASK = ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
 
     /*
      * Long long is guaranteed to be atleast 64-bits wide. We use the 32 most
@@ -117,6 +117,11 @@ public:
         this->round();
         return *this;
     }
+    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
+    {
+        this->num = rhs.num;
+        return *this;
+    }
     FixedPoint<INT_BITS, FRAC_BITS> &operator=(int rhs)
     {
         this->num = static_cast<long long>(rhs) << 32;
@@ -129,10 +134,13 @@ public:
     explicit operator double() const noexcept
     {
         // Test if sign extension is needed.
-        if (num & (1ll << (31+INT_BITS)))
+        if ( num & (1ll << (31+INT_BITS)) )
         {
-            return static_cast<double>(num | ~((1ll << (32+INT_BITS)) - 1)) / 
-                   static_cast<double>(1ll << 32);
+            // Some casting magic to avoid undefined behaviour for fixed point
+            // numbers with 31 integer bits.
+            unsigned long long mask = ((1ull << (32+INT_BITS)) - 1);
+            long long res = static_cast<long long>(static_cast<unsigned long long>(num) | ~mask);
+            return static_cast<double>(res) / static_cast<double>(1ll << 32);
         }
         else
         {

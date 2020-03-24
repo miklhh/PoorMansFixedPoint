@@ -23,6 +23,14 @@ TEST_CASE("Instance going out of scope should reset value.")
     }
 }
 
+TEST_CASE("Assigment of FixedPoint values (just need to compile).")
+{
+    FixedPoint<10,10> fix_a{}, fix_b{};
+    FixedPoint<10,10> fix_c = fix_a * fix_b;
+    fix_c = fix_a * fix_b;
+
+}
+
 
 TEST_CASE("Floating-point constructor")
 {
@@ -268,10 +276,6 @@ TEST_CASE("Conversion from BIG fixed point numbers to floating point conversion.
     FixedPoint<30,30> b{ 536870911, 178956970 };
     double b_ref{ 536870911.16666666604 };
     double b_error{ std::abs(b_ref - static_cast<double>(b)) };
-
-//    FixedPoint<31,31> c{ 1073741823, 195225786 };
-//    double c_ref{ 1073741823.09090909082 };
-//    double c_error{ std::abs(c_ref - static_cast<double>(c)) };
 
     FixedPoint<31,31> c{ -1073741823, 195225801 };
     double c_ref{ -1073741822.9090909018 };
