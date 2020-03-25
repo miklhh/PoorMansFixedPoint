@@ -1,4 +1,4 @@
-CC = clang++
+CC = g++
 CFLAGS = -I./ -std=c++11 -O2 -Wall -Wextra -Wpedantic -Weffc++
 
 OBJS=tests/test.o tests/catch.o

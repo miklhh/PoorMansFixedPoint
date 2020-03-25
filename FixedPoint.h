@@ -9,6 +9,7 @@
 #include <ostream>
 #include <string>
 #include <cmath>
+#include <iostream>
 
 template <int INT_BITS, int FRAC_BITS, void (*PRINT_FUNC)(std::string) = nullptr>
 class FixedPoint
@@ -58,9 +59,38 @@ class FixedPoint
         num &= BIT_MASK;
     }
 
+    /*
+     * Get the current number sign extended.
+     */
+    long long get_num_sign_extended() const noexcept
+    {
+        // Test if sign bit is set.
+        if ( this->num & (1ll << (31+INT_BITS)) )
+        {
+            return this->num | ~((1ll << (32+INT_BITS)) - 1);
+        }
+        else
+        {
+            return this->num;
+        }
+    }
+
 public:
     FixedPoint() = default;
 
+    /*
+     * Constructor for initialization from other fixed point number. Please note
+     * that usage of this constructor can cause data spill if the number stored
+     * in the RHS is to big for that of the LHS. If the RHS number does not fit
+     * in LHS one can basically view it as undefined behaviour.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+    {
+        // Sign extend in case RHS has a shorter wordlength than the left hand side.
+        this->num = rhs.get_num_sign_extended();
+        this->round();
+    }
     /*
      * Constructor for floating point number input.
      */
@@ -69,8 +99,8 @@ public:
         // Shifting a negative signed value is implementation defined: (ISO/IEC
         // 9899:1999 Section 6.5.7). For GNU g++ (9.2.0) and CLANG++ (8.0.1)
         // this solution seems to work.
-        num = std::round(a * static_cast<double>(1ll << 32));
-        round();
+        this->num = std::round(a * static_cast<double>(1ll << 32));
+        this->round();
     }
 
     /*
@@ -78,8 +108,8 @@ public:
      */
     FixedPoint(int i, unsigned f)
     {
-        set_int(i);
-        set_frac(f);
+        this->set_int(i);
+        this->set_frac(f);
     }
 
     /*
@@ -91,8 +121,8 @@ public:
     int get_frac() const noexcept { return static_cast<int>(num & 0xFFFFFFFFll); }
     void set_int(int i) noexcept
     {
-        num = (static_cast<long long>(i) << 32) | (0xFFFFFFFFll & num);
-        round();
+        this->num = (static_cast<long long>(i) << 32) | (0xFFFFFFFFll & num);
+        this->round();
     }
     void set_frac(unsigned f) noexcept
     {
@@ -204,39 +234,26 @@ public:
     }
 
     /*
-     * Multilication of FixedPoint numbers.
+     * Multilication of FixedPoint numbers. There are two versions of this
+     * method, the first one utilizing the compiler extension of 128-bit
+     * integers. If your compiler can utilize this exstension, you can use
+     * safely carry with your work - if not, you should have a look at the 
+     * second method which can possibly create problems if 
+     * INT_BITS + FRAC_BITS > 32.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS>
         operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
     {
-        // To utilize as much of the 64 bit range as we can, we start of by
-        // shifting down both factors to the LSb side.
-        FixedPoint<INT_BITS, FRAC_BITS> res;
-        long long op_a = this->num >> (32 - FRAC_BITS);
-        long long op_b = rhs.num >> (32 - RHS_FRAC_BITS);
+        FixedPoint<INT_BITS, FRAC_BITS> res{};
+        __extension__ __int128 op_a{ this->get_num_sign_extended() };
+        __extension__ __int128 op_b{   rhs.get_num_sign_extended() };
+        __extension__ __int128 res_128{ op_a * op_b };
 
-        // Sign extend numbers when propriate.
-        if ( op_a & (1ll << (INT_BITS+FRAC_BITS-1)) )
-        {
-            op_a |= ~((1ll << (INT_BITS+FRAC_BITS)) - 1);
-        }
-        if ( op_b & (1ll << (RHS_INT_BITS+RHS_FRAC_BITS-1)) )
-        {
-            op_b |= ~((1ll << (RHS_INT_BITS+RHS_FRAC_BITS)) - 1);
-        }
-
-        // Store result.
-        if (FRAC_BITS + RHS_FRAC_BITS <= 32)
-        {
-            res.num = (op_a * op_b) << (32 - FRAC_BITS - RHS_FRAC_BITS);
-        }
-        else
-        {
-            res.num = (op_a * op_b) >> (FRAC_BITS + RHS_FRAC_BITS - 32);
-        }
+        // Shift result back to the form Q(32,32) and return result.
+        res.num = static_cast<long long>(res_128 >> 32);
         res.round();
-        return res;
+        return res; 
     }
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> &
@@ -256,29 +273,14 @@ public:
     FixedPoint<INT_BITS, FRAC_BITS>
         operator/(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
     {
-        // To retain the highest precision possibly the dividend should be left
-        // adjusted as much as possible, and the divisor should be right adjusted
-        // as much as possible. We also need to sign extend the divisor.
-        FixedPoint<INT_BITS, FRAC_BITS> res;
-        long long dividend = this->num << (32-INT_BITS);
-        long long divisor = rhs.num >> (32-RHS_FRAC_BITS);
-        if ( divisor & (1ll << (RHS_INT_BITS+RHS_FRAC_BITS-1)) )
-        {
-            divisor |= ~((1ll << (RHS_INT_BITS+RHS_FRAC_BITS)) - 1);
-        }
-        long long quotient = dividend/divisor;
+        // Note that Q(a,64) / Q(b,32) == Q(c,32).
+        FixedPoint<INT_BITS, FRAC_BITS> res{};
+        __extension__ __int128 dividend{ this->get_num_sign_extended() };
+        __extension__ __int128 divisor {   rhs.get_num_sign_extended() };
+        dividend <<= 32;
 
-        // Shift result to the correct middle.
-        if (INT_BITS + RHS_FRAC_BITS < 32)
-        {
-            quotient >>= (32 - INT_BITS - RHS_FRAC_BITS);
-        }
-        else
-        {
-            quotient <<= (INT_BITS + RHS_FRAC_BITS - 32);
-        }
-
-        res.num = quotient;
+        // Create and return result. Note that Q(a,64) / Q(b,32) == Q(c,32).
+        res.num = static_cast<long long>( dividend/divisor );
         res.round();
         return res;
     }

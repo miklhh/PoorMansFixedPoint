@@ -271,7 +271,7 @@ TEST_CASE("Approximate e with Bernoulli limit.")
      * is no point of taking this algorithm further then it is already taken, it
      * won't yield more significant digits.
      */
-    const int ITERATIONS=25000;
+    const int ITERATIONS=50000;
     const double e = 2.71828183;
     FixedPoint<3,30> product_fixed{ 1.0 + 1.0/static_cast<double>(ITERATIONS) };
     FixedPoint<3,30> e_fixed{ 1.0 };
