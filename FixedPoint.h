@@ -9,7 +9,6 @@
 #include <ostream>
 #include <string>
 #include <cmath>
-#include <iostream>
 
 template <int INT_BITS, int FRAC_BITS, void (*PRINT_FUNC)(std::string) = nullptr>
 class FixedPoint
@@ -234,26 +233,60 @@ public:
     }
 
     /*
-     * Multilication of FixedPoint numbers. There are two versions of this
-     * method, the first one utilizing the compiler extension of 128-bit
-     * integers. If your compiler can utilize this exstension, you can use
-     * safely carry with your work - if not, you should have a look at the 
-     * second method which can possibly create problems if 
-     * INT_BITS + FRAC_BITS > 32.
+     * Multilication of FixedPoint numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS>
         operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
     {
-        FixedPoint<INT_BITS, FRAC_BITS> res{};
-        __extension__ __int128 op_a{ this->get_num_sign_extended() };
-        __extension__ __int128 op_b{   rhs.get_num_sign_extended() };
-        __extension__ __int128 res_128{ op_a * op_b };
+        /*
+         * Scenario 1:
+         * The entire result of the multiplication can fit into one 64-bit
+         * integer. This code produces significantly faster result when 
+         * applicable.
+         */
+        if (INT_BITS+FRAC_BITS <= 32 && RHS_INT_BITS+RHS_FRAC_BITS <= 32)
+        {
+            FixedPoint<INT_BITS, FRAC_BITS> res{};
+            long long op_a{ this->get_num_sign_extended() >> INT_BITS     };
+            long long op_b{   rhs.get_num_sign_extended() >> RHS_INT_BITS };
+            long long product{ op_a * op_b };
 
-        // Shift result back to the form Q(32,32) and return result.
-        res.num = static_cast<long long>(res_128 >> 32);
-        res.round();
-        return res; 
+            // Shift result to the correct place.
+            if (INT_BITS + RHS_INT_BITS > 32)
+            {
+                product <<= INT_BITS + RHS_INT_BITS - 32;
+            }
+            else
+            {
+                product >>= 32 - INT_BITS - RHS_INT_BITS;
+            }
+            res.num = product;
+            res.round();
+            return res;
+        }
+        /*
+         * Scenario 2:
+         * The entire result of the multiplication can fit into one 128-bit
+         * integer. Running this code takes SIGNIFICANTLY longer time than
+         * running the code of scenario 1, probably due to the fact that this
+         * code won't be accelerated by any integer vectorization. However, this
+         * piece of code seems to work for all sizes of FixedPoints.
+         */
+        else
+        {
+            // Utilize the compiler extension of 128-bit wide integers to be 
+            // able to store the exact result.
+            FixedPoint<INT_BITS, FRAC_BITS> res{};
+            __extension__ __int128 op_a{ this->get_num_sign_extended() };
+            __extension__ __int128 op_b{   rhs.get_num_sign_extended() };
+            __extension__ __int128 res_128{ op_a * op_b };
+
+            // Shift result back to the form Q(32,32) and return result.
+            res.num = static_cast<long long>(res_128 >> 32);
+            res.round();
+            return res; 
+        }
     }
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> &
