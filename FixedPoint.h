@@ -16,7 +16,6 @@ class FixedPoint
     static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
     static_assert(FRAC_BITS <= 32, "Fractional bits need to be less than or equal to 32 bits.");
     static_assert(INT_BITS + FRAC_BITS > 0, "Need at least one bit of representation.");
-    const long long BIT_MASK = ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
 
     /*
      * Long long is guaranteed to be atleast 64-bits wide. We use the 32 most
@@ -45,17 +44,18 @@ class FixedPoint
      */
     void round() noexcept
     {
+        const long long BIT_MASK = ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
         if (FRAC_BITS < 32)
         {
             if ( (1ll << (31-FRAC_BITS)) & num )
             {
                 // Rounding needed.
-                num += 1ll << (32-FRAC_BITS);
+                this->num += 1ll << (32-FRAC_BITS);
             }
         }
 
         // Apply the bit mask.
-        num &= BIT_MASK;
+        this->num &= BIT_MASK;
     }
 
     /*
@@ -66,7 +66,9 @@ class FixedPoint
         // Test if sign bit is set.
         if ( this->num & (1ll << (31+INT_BITS)) )
         {
-            return this->num | ~((1ll << (32+INT_BITS)) - 1);
+            // Sign extend.
+            unsigned long long mask = ((1ull << (32+INT_BITS)) - 1);
+            return static_cast<long long>(static_cast<unsigned long long>(num) | ~mask);
         }
         else
         {
@@ -84,7 +86,7 @@ public:
      * in LHS one can basically view it as undefined behaviour.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
     {
         // Sign extend in case RHS has a shorter wordlength than the left hand side.
         this->num = rhs.get_num_sign_extended();
@@ -98,14 +100,14 @@ public:
         // Shifting a negative signed value is implementation defined: (ISO/IEC
         // 9899:1999 Section 6.5.7). For GNU g++ (9.2.0) and CLANG++ (8.0.1)
         // this solution seems to work.
-        this->num = std::round(a * static_cast<double>(1ll << 32));
+        this->num = std::llround(a * static_cast<double>(1ll << 32));
         this->round();
     }
 
     /*
      * Constructor for manually setting bot int and frac part.
      */
-    FixedPoint(int i, unsigned f)
+    FixedPoint(int i, unsigned f) noexcept
     {
         this->set_int(i);
         this->set_frac(f);
@@ -140,35 +142,33 @@ public:
      * Assigment operators of FixedPoint numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs)
+    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
     {
         this->num = rhs.num;
         this->round();
         return *this;
     }
-    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
+    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<INT_BITS, FRAC_BITS> &rhs) noexcept
     {
         this->num = rhs.num;
         return *this;
     }
-    FixedPoint<INT_BITS, FRAC_BITS> &operator=(int rhs)
+    FixedPoint<INT_BITS, FRAC_BITS> &operator=(int rhs) noexcept
     {
         this->num = static_cast<long long>(rhs) << 32;
         this->round();
+        return *this;
     }
 
     /*
-     * Conversion to floating point number.
+     * (explicit) Conversion to floating point number.
      */
     explicit operator double() const noexcept
     {
         // Test if sign extension is needed.
         if ( num & (1ll << (31+INT_BITS)) )
         {
-            // Some casting magic to avoid undefined behaviour for fixed point
-            // numbers with 31 integer bits.
-            unsigned long long mask = ((1ull << (32+INT_BITS)) - 1);
-            long long res = static_cast<long long>(static_cast<unsigned long long>(num) | ~mask);
+            long long res = this->get_num_sign_extended();
             return static_cast<double>(res) / static_cast<double>(1ll << 32);
         }
         else
@@ -184,11 +184,7 @@ public:
     FixedPoint<INT_BITS, FRAC_BITS> operator-() const noexcept
     {
         FixedPoint<INT_BITS, FRAC_BITS> fix_res{};
-        long long extended = this->num;
-        unsigned long long mask = ((1ull << (32+INT_BITS)) - 1);
-        long long res = static_cast<long long>(static_cast<unsigned long long>(extended) | ~mask);
-        
-        fix_res.num = -res;
+        fix_res.num = -( this->get_num_sign_extended() );
         fix_res.round();
         return fix_res;
     }
@@ -237,7 +233,7 @@ public:
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS>
-        operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
+        operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
     {
         /*
          * Scenario 1:
@@ -290,7 +286,7 @@ public:
     }
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> &
-        operator*=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
+        operator*=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
     {
         FixedPoint<INT_BITS, FRAC_BITS> res{ *this * rhs };
         this->num = res.num;
