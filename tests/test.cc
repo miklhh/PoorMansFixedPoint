@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <cmath>
+#include <chrono>
 
 
 TEST_CASE("Template arguments")
@@ -336,8 +337,76 @@ TEST_CASE("Conversion from BIG fixed point numbers to floating point conversion.
     std::cout << "    FixedPoint<31,31>: "; std::cout.width(23);
     std::cout << c_ref; std::cout.width(23); std::cout << static_cast<double>(c);
     std::cout << " | "; std::cout.width(3); std::cout << c_error << std::endl;
+    std::cout << std::endl;
 
     // Error should be very small.
     double err_tol = 0.000001;
     REQUIRE((a_error < err_tol && b_error < err_tol && c_error < err_tol));
+}
+
+TEST_CASE("Multiplication performance.")
+{
+    /*
+     * Multiplication with 'short' will result in multiplication scenario 1
+     * (described in FixedPoint.h) and multiplication with 'long' will result
+     * in multiplication scenario 2.
+     */
+    using namespace std::chrono;
+    const int ITERATIONS=10000000;
+    const FixedPoint<1,30> fix_factor{ 0.9999995 }; // Rounded to 0.99999949988.
+    std::cout << "Results from multiplication performance test:" << std::endl;
+    std::cout.precision(7);
+
+    /*
+     * Double-precision floating-point multiplication test.
+     */
+    {
+        const double float_factor{ 0.9999995 };
+        double float_res{ 0.9999995 };
+        auto t1 = high_resolution_clock::now();
+        for (int i=0; i<ITERATIONS; ++i)
+        {
+            float_res *= float_factor;
+        }
+        auto t2 = high_resolution_clock::now();
+        auto time = duration_cast<microseconds>(t2 - t1);
+        std::cout << "    Float res:       ";
+        std::cout << static_cast<double>(float_res) << " @ ";
+        std::cout << time.count() << "us" << std::endl;
+    }
+
+    /*
+     * Short multiplication, scenario 1.
+     */
+    {
+        FixedPoint<1,30> fix_short{ 0.9999995 };
+        auto t1 = high_resolution_clock::now();
+        for (int i=0; i<ITERATIONS; ++i)
+        {
+            fix_short *= fix_factor;
+        }
+        auto t2 = high_resolution_clock::now();
+        auto time = duration_cast<microseconds>(t2 - t1);
+        std::cout << "    Short fixed res: ";
+        std::cout << static_cast<double>(fix_short) << " @ ";
+        std::cout << time.count() << "us" << std::endl;
+    }
+
+    /*
+     * Long multiplication, scenario 2.
+     */
+    {
+        FixedPoint<3,30> fix_long{ 0.9999995 };
+        auto t1 = high_resolution_clock::now();
+        for (int i=0; i<ITERATIONS; ++i)
+        {
+            fix_long *= fix_factor;
+        }
+        auto t2 = high_resolution_clock::now();
+        auto time = duration_cast<microseconds>(t2 - t1);
+        std::cout << "    Long fixed res:  ";
+        std::cout << static_cast<double>(fix_long) << " @ ";
+        std::cout << time.count() << "us" << std::endl;
+    }
+
 }
