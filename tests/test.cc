@@ -410,3 +410,17 @@ TEST_CASE("Multiplication performance.")
     }
 
 }
+
+TEST_CASE("Simple comparison test.")
+{
+   FixedPoint<10,10> a { 5.125 };
+   FixedPoint<20,23> b { 5.125 };
+   FixedPoint<4,20>  c { 2.0095 };
+   FixedPoint<2,3>   d { 0.0 };
+   FixedPoint<9,7>   e { 0.0 };
+   REQUIRE(a == b);
+   REQUIRE( (c < a && c <= a && c < b && c <= b) );
+   REQUIRE( (!(d < e) && !(d > e)) );
+   REQUIRE( (d <= e && d >= e) );
+   REQUIRE( (a >= d && a > e) );
+}

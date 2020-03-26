@@ -328,6 +328,40 @@ public:
         this->round();
         return *this;
     }
+
+    /*
+     * Comparison operators.
+     */
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    bool operator==(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() == rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    bool operator!=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() != rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    bool operator<(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() < rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    bool operator<=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() <= rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    bool operator>(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() > rhs.get_num_sign_extended();
+    }
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    bool operator>=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    {
+        return this->get_num_sign_extended() >= rhs.get_num_sign_extended();
+    }
 };
 
 /*
