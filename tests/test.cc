@@ -424,3 +424,35 @@ TEST_CASE("Simple comparison test.")
    REQUIRE( (d <= e && d >= e) );
    REQUIRE( (a >= d && a > e) );
 }
+
+TEST_CASE("Assignment where the wordlength changes.")
+{
+    /* 
+     * Test constructors.
+     */
+    {
+        FixedPoint<10,10> a{ 4.75 }, b{ -13.0625 };
+        FixedPoint<14,14> a_longer{a}, b_longer{b};
+        REQUIRE( (a == a_longer && b == b_longer) );
+    }
+    {
+        FixedPoint<14,14> a{ 4.75 }, b{ -13.0625 };
+        FixedPoint<10,10> a_longer{a}, b_longer{b};
+        REQUIRE( (a == a_longer && b == b_longer) );
+    }
+
+    /*
+     * Test assignment operators.
+     */
+    {
+        FixedPoint<10,10> a{ 4.75 }, b{ -13.0625 };
+        FixedPoint<14,14> a_longer{}, b_longer{};
+        a_longer = a;
+        b_longer = b;
+        REQUIRE( (a == a_longer && b == b_longer) );
+        a = 0; a = a_longer;
+        b = 0; b = b_longer;
+        REQUIRE( (a == a_longer && b == b_longer) );
+    }
+}
+

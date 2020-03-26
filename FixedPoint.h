@@ -136,7 +136,7 @@ public:
     FixedPoint<INT_BITS, FRAC_BITS> &
         operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
     {
-        this->num = rhs.num;
+        this->num = rhs.get_num_sign_extended();
         this->round();
         return *this;
     }
