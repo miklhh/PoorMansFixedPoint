@@ -108,8 +108,11 @@ TEST_CASE("Fixed point to floating point conversion introductory test.")
 }
 
 
-TEST_CASE("Addition")
+TEST_CASE("Addition tests")
 {
+    /*
+     * Introductory tests.
+     */
     {
         std::stringstream result{};
         FixedPoint<10,10> fix_a{3.25};
@@ -123,6 +126,42 @@ TEST_CASE("Addition")
         FixedPoint<10,10> fix_b{7.4444444}; // (4.44433) when rounded.
         result << fix_a + fix_b;
         REQUIRE(result.str() == std::string("10 + 796/1024"));
+    }
+
+    /*
+     * Addition with negative operands of different word lengths.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<9,10> fix_a{ -3.25 };
+        FixedPoint<6,12> fix_b{ 7.75 };
+        result << fix_a + fix_b << "|" << (fix_a += fix_b);
+        REQUIRE(result.str() == std::string("4 + 512/1024|4 + 512/1024"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<9,10> fix_a{ 3.25 };
+        FixedPoint<6,12> fix_b{ -7.75 };
+        result << fix_a + fix_b << "|" << (fix_a += fix_b);
+        REQUIRE(result.str() == std::string("-5 + 512/1024|-5 + 512/1024"));
+    }
+
+    /*
+     * Subtraction with negative operands of different word lengths.
+     */
+    {
+        std::stringstream result{};
+        FixedPoint<9,10> fix_a{ -3.50 };
+        FixedPoint<6,12> fix_b{ 7.75 };
+        result << fix_a - fix_b << "|" << (fix_a -= fix_b);
+        REQUIRE(result.str() == std::string("-12 + 768/1024|-12 + 768/1024"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<9,10> fix_a{ 5.50 };
+        FixedPoint<6,12> fix_b{ -9.75 };
+        result << fix_a - fix_b << "|" << (fix_a -= fix_b);
+        REQUIRE(result.str() == std::string("15 + 256/1024|15 + 256/1024"));
     }
 }
 

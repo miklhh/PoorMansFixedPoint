@@ -184,7 +184,7 @@ public:
         operator+(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const noexcept
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
-        res.num = this->num + rhs.num;
+        res.num = this->get_num_sign_extended() + rhs.get_num_sign_extended();
         res.round();
         return res;
     }
@@ -192,7 +192,7 @@ public:
     FixedPoint<INT_BITS, FRAC_BITS> &
         operator+=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
     {
-        this->num += rhs.num;
+        this->num = this->get_num_sign_extended() + rhs.get_num_sign_extended();
         this->round();
         return *this;
     }
@@ -201,7 +201,7 @@ public:
         operator-(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const noexcept
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
-        res.num = this->num - rhs.num;
+        res.num = this->get_num_sign_extended() - rhs.get_num_sign_extended();
         res.round();
         return res;
     }
@@ -209,7 +209,7 @@ public:
     FixedPoint<INT_BITS, FRAC_BITS> &
         operator-=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
     {
-        this->num -= rhs.num;
+        this->num = this->get_num_sign_extended() - rhs.get_num_sign_extended();
         this->round();
         return *this;
     }
