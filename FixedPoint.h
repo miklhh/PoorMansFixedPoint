@@ -34,28 +34,21 @@ class FixedPoint
     /*
      * Friend declaration for stream output method.
      */
-    template <int _INT_BITS, int _FRAC_BITS>
-    friend std::ostream &operator<<(std::ostream &os, const FixedPoint<_INT_BITS, _FRAC_BITS> &rhs);
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    friend std::ostream &
+        operator<<(std::ostream &os, const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
     /*
      * Private rounding function, for rounding before applying the shift mask
-     * (when appropriate). Rounding without applying the mask afterwards causes
-     * undefined behaviour.
+     * (when appropriate).
      */
     void round() noexcept
     {
-        const long long BIT_MASK = ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
         if (FRAC_BITS < 32)
-        {
-            if ( (1ll << (31-FRAC_BITS)) & num )
-            {
-                // Rounding needed.
-                this->num += 1ll << (32-FRAC_BITS);
-            }
-        }
+            this->num += 1ll << (31-FRAC_BITS);
 
         // Apply the bit mask.
-        this->num &= BIT_MASK;
+        this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
     }
 
     /*
@@ -63,17 +56,17 @@ class FixedPoint
      */
     long long get_num_sign_extended() const noexcept
     {
-        // Test if sign bit is set.
-        if ( this->num & (1ll << (31+INT_BITS)) )
-        {
-            // Sign extend.
-            unsigned long long mask = ((1ull << (32+INT_BITS)) - 1);
-            return static_cast<long long>(static_cast<unsigned long long>(num) | ~mask);
-        }
-        else
-        {
-            return this->num;
-        }
+        /*
+         * Instead of of testing if we need to sign extend the internal number
+         * num, we left shift it (unsigned, logically) all the way to the MSb, 
+         * and then shift it (signed, arithmeticaly) back to its original 
+         * position. This has performance benifits. Note that right shift of a 
+         * signed value is implementation defined, but that both GCC and CLANG
+         * seems to do arithmetical shifts, as intended, for tested systems.
+         */
+        using uns_ll = unsigned long long;
+        uns_ll l = static_cast<uns_ll>(this->num) << (32-INT_BITS);
+        return static_cast<long long>(l) >> (32-INT_BITS);
     }
 
 public:
@@ -88,18 +81,15 @@ public:
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
     {
-        // Sign extend in case RHS has a shorter wordlength than the left hand side.
         this->num = rhs.get_num_sign_extended();
         this->round();
     }
+
     /*
      * Constructor for floating point number input.
      */
     FixedPoint(double a)
     {
-        // Shifting a negative signed value is implementation defined: (ISO/IEC
-        // 9899:1999 Section 6.5.7). For GNU g++ (9.2.0) and CLANG++ (8.0.1)
-        // this solution seems to work.
         this->num = std::llround(a * static_cast<double>(1ll << 32));
         this->round();
     }
@@ -111,6 +101,7 @@ public:
     {
         this->set_int(i);
         this->set_frac(f);
+        this->round();
     }
 
     /*
@@ -127,9 +118,9 @@ public:
     }
     void set_frac(unsigned f) noexcept
     {
-        num &= 0xFFFFFFFF00000000ll;
-        num |= 0xFFFFFFFFll & (static_cast<long long>(f) << (32 - FRAC_BITS));
-        round();
+        this->num &= 0xFFFFFFFF00000000ll;
+        this->num |= 0xFFFFFFFFll & (static_cast<long long>(f) << (32 - FRAC_BITS));
+        this->round();
     }
     std::string get_frac_quotient() const noexcept
     {
@@ -142,18 +133,21 @@ public:
      * Assigment operators of FixedPoint numbers.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
     {
         this->num = rhs.num;
         this->round();
         return *this;
     }
-    FixedPoint<INT_BITS, FRAC_BITS> &operator=(const FixedPoint<INT_BITS, FRAC_BITS> &rhs) noexcept
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator=(const FixedPoint<INT_BITS, FRAC_BITS> &rhs) noexcept
     {
         this->num = rhs.num;
         return *this;
     }
-    FixedPoint<INT_BITS, FRAC_BITS> &operator=(int rhs) noexcept
+    FixedPoint<INT_BITS, FRAC_BITS> &
+        operator=(int rhs) noexcept
     {
         this->num = static_cast<long long>(rhs) << 32;
         this->round();
@@ -166,16 +160,8 @@ public:
     explicit operator double() const noexcept
     {
         // Test if sign extension is needed.
-        if ( num & (1ll << (31+INT_BITS)) )
-        {
-            long long res = this->get_num_sign_extended();
-            return static_cast<double>(res) / static_cast<double>(1ll << 32);
-        }
-        else
-        {
-            return static_cast<double>(num) / 
-                   static_cast<double>(1ll << 32);
-        }
+        return static_cast<double>(this->get_num_sign_extended()) /
+               static_cast<double>(1ll << 32);
     }
 
     /*
@@ -190,8 +176,8 @@ public:
     }
 
     /*
-     * Addition/subtraction of FixedPoint numbers. Result will have word length equal to
-     * that of the left hand side of the operator.
+     * Addition/subtraction of FixedPoint numbers. Result will have word length 
+     * equal to that of the left hand side of the operator.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS>
@@ -238,36 +224,34 @@ public:
         /*
          * Scenario 1:
          * The entire result of the multiplication can fit into one 64-bit
-         * integer. This code produces significantly faster result when 
-         * applicable.
+         * integer. This code produces faster result when applicable.
          */
         if (INT_BITS+FRAC_BITS <= 32 && RHS_INT_BITS+RHS_FRAC_BITS <= 32)
         {
             FixedPoint<INT_BITS, FRAC_BITS> res{};
             long long op_a{ this->get_num_sign_extended() >> INT_BITS     };
             long long op_b{   rhs.get_num_sign_extended() >> RHS_INT_BITS };
-            long long product{ op_a * op_b };
+            res.num = op_a * op_b;
 
             // Shift result to the correct place.
             if (INT_BITS + RHS_INT_BITS > 32)
             {
-                product <<= INT_BITS + RHS_INT_BITS - 32;
+                res.num <<= INT_BITS + RHS_INT_BITS - 32;
             }
             else
             {
-                product >>= 32 - INT_BITS - RHS_INT_BITS;
+                res.num >>= 32 - INT_BITS - RHS_INT_BITS;
             }
-            res.num = product;
             res.round();
             return res;
         }
         /*
          * Scenario 2:
          * The entire result of the multiplication can fit into one 128-bit
-         * integer. Running this code takes SIGNIFICANTLY longer time than
-         * running the code of scenario 1, probably due to the fact that this
-         * code won't be accelerated by any integer vectorization. However, this
-         * piece of code seems to work for all sizes of FixedPoints.
+         * integer. Running this code takes a little longer time than running 
+         * the code of scenario 1, probably due to the fact that this code won't 
+         * be accelerated by any integer vectorization. However, this piece of 
+         * code seems to work for all sizes of FixedPoints.
          */
         else
         {
