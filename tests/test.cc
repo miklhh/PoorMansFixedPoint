@@ -135,14 +135,16 @@ TEST_CASE("Addition tests")
         std::stringstream result{};
         FixedPoint<9,10> fix_a{ -3.25 };
         FixedPoint<6,12> fix_b{ 7.75 };
-        result << fix_a + fix_b << "|" << (fix_a += fix_b);
+        result <<  fix_a +  fix_b << "|";
+        result << (fix_a += fix_b);
         REQUIRE(result.str() == std::string("4 + 512/1024|4 + 512/1024"));
     }
     {
         std::stringstream result{};
         FixedPoint<9,10> fix_a{ 3.25 };
         FixedPoint<6,12> fix_b{ -7.75 };
-        result << fix_a + fix_b << "|" << (fix_a += fix_b);
+        result <<  fix_a +  fix_b << "|";
+        result << (fix_a += fix_b);
         REQUIRE(result.str() == std::string("-5 + 512/1024|-5 + 512/1024"));
     }
 
@@ -153,14 +155,16 @@ TEST_CASE("Addition tests")
         std::stringstream result{};
         FixedPoint<9,10> fix_a{ -3.50 };
         FixedPoint<6,12> fix_b{ 7.75 };
-        result << fix_a - fix_b << "|" << (fix_a -= fix_b);
+        result <<  fix_a -  fix_b << "|";
+        result << (fix_a -= fix_b);
         REQUIRE(result.str() == std::string("-12 + 768/1024|-12 + 768/1024"));
     }
     {
         std::stringstream result{};
         FixedPoint<9,10> fix_a{ 5.50 };
         FixedPoint<6,12> fix_b{ -9.75 };
-        result << fix_a - fix_b << "|" << (fix_a -= fix_b);
+        result <<  fix_a -  fix_b << "|";
+        result << (fix_a -= fix_b);
         REQUIRE(result.str() == std::string("15 + 256/1024|15 + 256/1024"));
     }
 }
