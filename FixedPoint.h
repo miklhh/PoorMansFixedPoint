@@ -355,16 +355,6 @@ public:
 template <int INT_BITS, int FRAC_BITS>
 std::ostream &operator<<(std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
 {
-    // Test if sign bit is set.
-    if ( (1ll << (31+INT_BITS)) & rhs.num )
-    {
-        // Sign extend such that the number is interpreted correctly by C++.
-        int integer = rhs.get_int() | ~((1 << INT_BITS) - 1);
-        return os << integer << " + " << rhs.get_frac_quotient();
-    }
-    else
-    {
-        // No need to sign extend. Just grab the integer part.
-        return os << rhs.get_int() << " + " << rhs.get_frac_quotient();
-    }
+    long long num{ rhs.get_num_sign_extended() };
+    return os << (num >> 32) << " + " << rhs.get_frac_quotient();
 }
