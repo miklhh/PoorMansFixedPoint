@@ -33,7 +33,7 @@ TEST_CASE("Assigment of FixedPoint values (just need to compile).")
 
 TEST_CASE("Unary negation.")
 {
-    /* 
+    /*
      * Test all 'sides'.
      */
     {
@@ -234,7 +234,7 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
         REQUIRE(result.str() == std::string("250011 + 1036913/2097152"));
     }
 
-    /* 
+    /*
      * Some more tests.
      */
     {
@@ -470,7 +470,7 @@ TEST_CASE("Simple comparison test.")
 
 TEST_CASE("Assignment where the wordlength changes.")
 {
-    /* 
+    /*
      * Test constructors.
      */
     {
@@ -499,3 +499,64 @@ TEST_CASE("Assignment where the wordlength changes.")
     }
 }
 
+void print_func(const char *s)
+{
+    std::cout << s << std::endl;
+}
+
+
+TEST_CASE("Under-/Overflow tests.")
+{
+
+    /*
+     * Introductory overflow test.
+     */
+    {
+        static std::stringstream ss;
+        auto print_overflow_func = [](const char *str)->void { ss << str; };
+
+        FixedPointDebug<4,2> fix_a{ "A", print_overflow_func, 7.50 };
+        fix_a + FixedPoint<4,2>{ 0.25 };
+        REQUIRE(ss.str() == std::string(""));
+        fix_a += FixedPoint<4,2>{ 0.25 };
+        REQUIRE(ss.str() == std::string(""));
+        fix_a + FixedPoint<4,2>{ 0.50 };
+        REQUIRE(ss.str() == std::string(
+            "Overflow detected in node: 'A' with value: 8 + 1/4. "\
+            "Truncated to: -8 + 1/4"));
+    }
+
+
+    /*
+     * Introductory underflow test.
+     */
+    {
+        static std::stringstream ss;
+        auto print_overflow_func = [](const char *str)->void { ss << str; };
+
+        FixedPointDebug<5,3> fix_b{ "B", print_overflow_func, -15.75 };
+        fix_b - FixedPoint<4,2>{ 0.25 };
+        REQUIRE(ss.str() == std::string(""));
+        fix_b -= FixedPoint<4,2>{ 0.25 };
+        REQUIRE(ss.str() == std::string(""));
+        fix_b - FixedPoint<4,2>{ 0.25 };
+        REQUIRE(ss.str() == std::string(
+            "Underflow detected in node: 'B' with value: -17 + 6/8. "\
+            "Truncated to: 15 + 6/8"));
+    }
+
+    /*
+     * Test with multiplication.
+     */
+    static std::stringstream ss;
+    auto print_overflow_func = [](const char *str)->void { ss << str; };
+
+    FixedPointDebug<4,4> fix_c{ "C", print_overflow_func, 3.50 };
+    fix_c * FixedPoint<3,0>{ 2.0 };
+    REQUIRE(ss.str() == std::string(""));
+    fix_c * FixedPoint<3,0>{ 3.0 };
+    REQUIRE(ss.str() == std::string(
+        "Overflow detected in node: 'C' with value: 10 + 8/16. "\
+        "Truncated to: -6 + 8/16"));
+
+}

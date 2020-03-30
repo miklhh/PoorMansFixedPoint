@@ -7,16 +7,18 @@
  */
 
 #include <ostream>
+#include <sstream>
 #include <string>
 #include <cmath>
 
-template <int INT_BITS, int FRAC_BITS, void (*PRINT_FUNC)(std::string) = nullptr>
+template <int INT_BITS, int FRAC_BITS>
 class FixedPoint
 {
     static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
     static_assert(FRAC_BITS <= 32, "Fractional bits need to be less than or equal to 32 bits.");
     static_assert(INT_BITS + FRAC_BITS > 0, "Need at least one bit of representation.");
 
+protected:
     /*
      * Long long is guaranteed to be atleast 64-bits wide. We use the 32 most
      * significant bits to store the integer part and the 32 least significant
@@ -28,7 +30,7 @@ class FixedPoint
      * Friend declaration for accessing 'num' between different types, i.e,
      * between template instances with different wordlenth.
      */
-    template <int _INT_BITS, int _FRAC_BITS, void (*_PRINT_FUNC)(std::string)>
+    template <int _INT_BITS, int _FRAC_BITS>
     friend class FixedPoint;
 
     /*
@@ -38,23 +40,37 @@ class FixedPoint
     friend std::ostream &
         operator<<(std::ostream &os, const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
 
+
     /*
-     * Private rounding function, for rounding before applying the shift mask
-     * (when appropriate).
+     * Private rounding function. A note on the usage of this method, it is
+     * virtual such that a debug class can override it, in which over-/underflow
+     * can be detected and displayed to the user. For usage on 'oneself', invoke
+     * this method 'this->round(this->num)' to properly round and apply the
+     * bitmask.
      */
-    void round() noexcept
+    virtual void round(long long &num) const noexcept
     {
         if (FRAC_BITS < 32)
-            this->num += 1ll << (31-FRAC_BITS);
+            num += 1ll << (31-FRAC_BITS);
 
         // Apply the bit mask.
-        this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
+        num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
     }
 
     /*
-     * Get the current number sign extended.
+     * Quick round function for rounding oneself. This method is short hand for
+     * invoking 'this->round(this->num)'.
      */
-    long long get_num_sign_extended() const noexcept
+    void round() noexcept
+    {
+        this->round(this->num);
+    }
+
+    /*
+     * Get the current number (or another number, see overloads!) sign extended
+     * to Q(32, 32) format.
+     */
+    long long get_num_sign_extended(long long num) const noexcept
     {
         /*
          * Instead of of testing if we need to sign extend the internal number
@@ -65,18 +81,23 @@ class FixedPoint
          * seems to do arithmetical shifts, as intended, for tested systems.
          */
         using uns_ll = unsigned long long;
-        uns_ll l = static_cast<uns_ll>(this->num) << (32-INT_BITS);
+        uns_ll l = static_cast<uns_ll>(num) << (32-INT_BITS);
         return static_cast<long long>(l) >> (32-INT_BITS);
+    }
+    long long get_num_sign_extended() const noexcept
+    {
+        return get_num_sign_extended(this->num);
     }
 
 public:
     FixedPoint() = default;
+    virtual ~FixedPoint() = default;
 
     /*
      * Constructor for initialization from other fixed point number. Please note
      * that usage of this constructor can cause data spill if the number stored
      * in the RHS is to big for that of the LHS. If the RHS number does not fit
-     * in LHS one can basically view it as undefined behaviour.
+     * in LHS one the overflowing bits are lost.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
@@ -90,7 +111,7 @@ public:
     }
 
     /*
-     * Constructor for floating point number input.
+     * Constructor for floating point number inputs.
      */
     FixedPoint(double a)
     {
@@ -103,8 +124,9 @@ public:
      */
     FixedPoint(int i, unsigned f) noexcept
     {
-        this->set_int(i);
-        this->set_frac(f);
+        this->num = (static_cast<long long>(i) << 32) | (0xFFFFFFFFll & num);
+        this->num &= 0xFFFFFFFF00000000ll;
+        this->num |= 0xFFFFFFFFll & (static_cast<long long>(f) << (32 - FRAC_BITS));
         this->round();
     }
 
@@ -115,22 +137,20 @@ public:
     int get_frac_bits() const noexcept { return FRAC_BITS; }
     int get_int() const noexcept { return static_cast<int>(num >> 32); }
     int get_frac() const noexcept { return static_cast<int>(num & 0xFFFFFFFFll); }
-    void set_int(int i) noexcept
-    {
-        this->num = (static_cast<long long>(i) << 32) | (0xFFFFFFFFll & num);
-        this->round();
-    }
-    void set_frac(unsigned f) noexcept
-    {
-        this->num &= 0xFFFFFFFF00000000ll;
-        this->num |= 0xFFFFFFFFll & (static_cast<long long>(f) << (32 - FRAC_BITS));
-        this->round();
-    }
-    std::string get_frac_quotient() const noexcept
+
+    /*
+     * Retrieve a string of the fractional part of the FixedPoint number, useful
+     * for displaying the FixedPoint number content.
+     */
+    std::string get_frac_quotient(const long long &num) const noexcept
     {
         std::string numerator = std::to_string((num & 0xFFFFFFFF) >> (32-FRAC_BITS));
         std::string denominator = std::to_string(1ll << FRAC_BITS);
         return numerator + "/" + denominator;
+    }
+    std::string get_frac_quotient() const noexcept
+    {
+        return get_frac_quotient(this->num);
     }
 
     /*
@@ -173,10 +193,10 @@ public:
      */
     FixedPoint<INT_BITS, FRAC_BITS> operator-() const noexcept
     {
-        FixedPoint<INT_BITS, FRAC_BITS> fix_res{};
-        fix_res.num = -( this->get_num_sign_extended() );
-        fix_res.round();
-        return fix_res;
+        FixedPoint<INT_BITS, FRAC_BITS> res{};
+        res.num = -( this->get_num_sign_extended() );
+        this->round(res.num);
+        return res;
     }
 
     /*
@@ -189,7 +209,7 @@ public:
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->get_num_sign_extended() + rhs.get_num_sign_extended();
-        res.round();
+        this->round(res.num);
         return res;
     }
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
@@ -206,7 +226,7 @@ public:
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->get_num_sign_extended() - rhs.get_num_sign_extended();
-        res.round();
+        this->round(res.num);
         return res;
     }
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
@@ -246,7 +266,7 @@ public:
             {
                 res.num >>= 32 - INT_BITS - RHS_INT_BITS;
             }
-            res.round();
+            this->round(res.num);
             return res;
         }
         /*
@@ -268,7 +288,7 @@ public:
 
             // Shift result back to the form Q(32,32) and return result.
             res.num = static_cast<long long>(res_128 >> 32);
-            res.round();
+            this->round(res.num);
             return res;
         }
     }
@@ -298,7 +318,7 @@ public:
 
         // Create and return result. Note that Q(a,64) / Q(b,32) == Q(c,32).
         res.num = static_cast<long long>( dividend/divisor );
-        res.round();
+        this->round(res.num);
         return res;
     }
     FixedPoint<INT_BITS, FRAC_BITS>
@@ -306,7 +326,7 @@ public:
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->num / rhs;
-        res.round();
+        this->round(res.num);
         return res;
     }
     FixedPoint<INT_BITS, FRAC_BITS> &
@@ -351,6 +371,76 @@ public:
         return this->get_num_sign_extended() >= rhs.get_num_sign_extended();
     }
 };
+
+
+/*
+ * FixedPointDebug class for helping print error messages on over-/underflows.
+ */
+template <int INT_BITS, int FRAC_BITS>
+class FixedPointDebug : public FixedPoint<INT_BITS, FRAC_BITS>
+{
+    const char *name{nullptr};
+    void (*print_func)(const char *){nullptr};
+
+    /*
+     * Private method for testing over/underflow.
+     */
+    bool test_over_or_underflow(long long &num) const noexcept
+    {
+        // Implementation defined behaviour. We expect the result of signed
+        // right shift to be arithmetic shift (sign extending). This holds true
+        // for GCC and CLANG on tested machines. Test it yourself by running the
+        // unit test.
+        unsigned long long msb_extended = (num >> (31+INT_BITS));
+        return !( (msb_extended == -1ull) || (msb_extended == 0ull) );
+    }
+
+public:
+    /*
+     * Constructor. Takes a string 'name' and a function pointer to print over-
+     * underflow info (good for when external printfunctions are used, e.g.,
+     * mexPrintf). Passes remaining arguments to base class.
+     */
+    template <class ...Ts>
+    FixedPointDebug(const char *name, void (*print_func)(const char *), Ts ...ts)
+        : FixedPoint<INT_BITS, FRAC_BITS>(ts...),
+          name(name), print_func(print_func) { }
+
+    FixedPointDebug(const FixedPointDebug &other) = default;
+    FixedPointDebug &operator=(const FixedPointDebug &rhs) = default;
+
+    /*
+     * Overriden rounding method. This is where tests for overflow will be
+     * performed.
+     */
+    void round(long long &num) const noexcept override
+    {
+        // Perform the rounding.
+        if (FRAC_BITS < 32)
+            num += 1ll << (31-FRAC_BITS);
+
+        // Test for overflow.
+        if ( test_over_or_underflow(num) )
+        {
+            std::stringstream ss;
+            ss << (((1ull << 63) & num) ? "Underflow " : "Overflow ");
+            ss << "detected in node: '" << name << "' with value: ";
+            ss << (num >> 32) << " + " << this->get_frac_quotient(num);
+
+            num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
+            ss << ". Truncated to: " << (this->get_num_sign_extended(num) >> 32) << " + ";
+            ss << this->get_frac_quotient(num);
+            print_func(ss.str().c_str());
+        }
+        else
+        {
+            // Apply the bit mask.
+            num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
+
+        }
+    }
+};
+
 
 /*
  * Print-out to C++ stream object on the form '<int> + <frac>/<2^<frac_bits>'.
