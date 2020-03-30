@@ -16,7 +16,7 @@ tests/catch_test.out: $(HEADER) $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o tests/catch_test.out
 
 tests/test.o: $(HEADER) tests/test.cc
-	$(CC) $(CFLAGS) -c tests/test.cc -o tests/test.o 
+	$(CC) $(CFLAGS) -c tests/test.cc -o tests/test.o
 
 clean:
 	-@rm -v tests/catch.o

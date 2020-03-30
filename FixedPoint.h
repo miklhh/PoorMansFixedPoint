@@ -58,9 +58,9 @@ class FixedPoint
     {
         /*
          * Instead of of testing if we need to sign extend the internal number
-         * num, we left shift it (unsigned, logically) all the way to the MSb, 
-         * and then shift it (signed, arithmeticaly) back to its original 
-         * position. This has performance benifits. Note that right shift of a 
+         * num, we left shift it (unsigned, logically) all the way to the MSb,
+         * and then shift it (signed, arithmeticaly) back to its original
+         * position. This has performance benifits. Note that right shift of a
          * signed value is implementation defined, but that both GCC and CLANG
          * seems to do arithmetical shifts, as intended, for tested systems.
          */
@@ -83,6 +83,10 @@ public:
     {
         this->num = rhs.get_num_sign_extended();
         this->round();
+    }
+    FixedPoint(const FixedPoint<INT_BITS, FRAC_BITS> &rhs) noexcept
+    {
+        this->num = rhs.num;
     }
 
     /*
@@ -176,7 +180,7 @@ public:
     }
 
     /*
-     * Addition/subtraction of FixedPoint numbers. Result will have word length 
+     * Addition/subtraction of FixedPoint numbers. Result will have word length
      * equal to that of the left hand side of the operator.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
@@ -248,14 +252,14 @@ public:
         /*
          * Scenario 2:
          * The entire result of the multiplication can fit into one 128-bit
-         * integer. Running this code takes a little longer time than running 
-         * the code of scenario 1, probably due to the fact that this code won't 
-         * be accelerated by any integer vectorization. However, this piece of 
+         * integer. Running this code takes a little longer time than running
+         * the code of scenario 1, probably due to the fact that this code won't
+         * be accelerated by any integer vectorization. However, this piece of
          * code seems to work for all sizes of FixedPoints.
          */
         else
         {
-            // Utilize the compiler extension of 128-bit wide integers to be 
+            // Utilize the compiler extension of 128-bit wide integers to be
             // able to store the exact result.
             FixedPoint<INT_BITS, FRAC_BITS> res{};
             __extension__ __int128 op_a{ this->get_num_sign_extended() };
@@ -265,7 +269,7 @@ public:
             // Shift result back to the form Q(32,32) and return result.
             res.num = static_cast<long long>(res_128 >> 32);
             res.round();
-            return res; 
+            return res;
         }
     }
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
