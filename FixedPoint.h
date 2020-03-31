@@ -6,12 +6,33 @@
  * Author: Mikael Henriksson
  */
 
+#ifndef _POOR_MANS_FIXED_POINT_H
+#define _POOR_MANS_FIXED_POINT_H
+
 #include <ostream>
-#include <sstream>
 #include <string>
 #include <cmath>
 
-template <int INT_BITS, int FRAC_BITS>
+/*
+ * Debuging stuff for being able to display over-/underflows.
+ */
+#ifdef _DEBUG_SHOW_OVERFLOW_INFO
+    #include <sstream>
+
+    /*
+     * If using this debuging functionallity, define in this function how an
+     * output string should be passed to the user.
+     */
+    #include <iostream>
+    void _DEBUG_PRINT_FUNC(const char *str)
+    {
+        // Example debug feed forward.
+        std::cerr << str << std::endl;
+    }
+
+#endif
+
+template <int INT_BITS, int FRAC_BITS, int NODE_ID = 0>
 class FixedPoint
 {
     static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
@@ -30,15 +51,17 @@ protected:
      * Friend declaration for accessing 'num' between different types, i.e,
      * between template instances with different wordlenth.
      */
-    template <int _INT_BITS, int _FRAC_BITS>
+    template <int _INT_BITS, int _FRAC_BITS, int _NODE_ID>
     friend class FixedPoint;
 
     /*
      * Friend declaration for stream output method.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
     friend std::ostream &
-        operator<<(std::ostream &os, const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
+        operator<<(
+                std::ostream &os,
+                const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs);
 
 
     /*
@@ -48,10 +71,35 @@ protected:
      * this method 'this->round(this->num)' to properly round and apply the
      * bitmask.
      */
-    virtual void round(long long &num) const noexcept
+    virtual void round(long long &num, bool is_division = false) const noexcept
     {
         if (FRAC_BITS < 32)
             num += 1ll << (31-FRAC_BITS);
+
+        /*
+         * Mute warning of unused parameter is_division which is only used in
+         * the debuging state.
+         */
+        (void) is_division;
+
+#ifdef _DEBUG_SHOW_OVERFLOW_INFO
+        /*
+         * If enebaled, test for over-/underflow for the result and present user
+         * with a warning.
+         */
+        if ( !is_division && test_over_or_underflow(num) )
+        {
+            std::stringstream ss{};
+            ss << (((1ull << 63) & num) ? "Underflow " : "Overflow ");
+            ss << "detected in node with id: '" << NODE_ID << "' with value: ";
+            ss << (num >> 32) << " + " << this->get_frac_quotient(num);
+
+            num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
+            ss << ". Truncated to: " << (this->get_num_sign_extended(num) >> 32);
+            ss << " + " << this->get_frac_quotient(num);
+            _DEBUG_PRINT_FUNC(ss.str().c_str());
+        }
+#endif
 
         // Apply the bit mask.
         num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
@@ -61,9 +109,9 @@ protected:
      * Quick round function for rounding oneself. This method is short hand for
      * invoking 'this->round(this->num)'.
      */
-    void round() noexcept
+    void round(bool is_division = false) noexcept
     {
-        this->round(this->num);
+        this->round(this->num, is_division);
     }
 
     /*
@@ -89,6 +137,23 @@ protected:
         return get_num_sign_extended(this->num);
     }
 
+    /*
+     * Private method for testing over/underflow.
+     */
+    bool test_over_or_underflow(long long &num) const noexcept
+    {
+        // Implementation defined behaviour. We expect the result of signed
+        // right shift to be arithmetic shift (sign extending). This holds true
+        // for GCC and CLANG on tested machines. Test it yourself by running the
+        // unit test.
+        unsigned long long msb_extended = (num >> (31+INT_BITS));
+        return !( (msb_extended == -1ull) || (msb_extended == 0ull) );
+    }
+    bool test_over_or_underflow() const noexcept
+    {
+        return test_over_or_underflow(this->num);
+    }
+
 public:
     FixedPoint() = default;
     virtual ~FixedPoint() = default;
@@ -99,8 +164,9 @@ public:
      * in the RHS is to big for that of the LHS. If the RHS number does not fit
      * in LHS one the overflowing bits are lost.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        noexcept
     {
         this->num = rhs.get_num_sign_extended();
         this->round();
@@ -116,6 +182,15 @@ public:
     FixedPoint(double a)
     {
         this->num = std::llround(a * static_cast<double>(1ll << 32));
+        this->round();
+    }
+
+    /*
+     * Constructor for integers.
+     */
+    FixedPoint(int n)
+    {
+        this->num = static_cast<long long>(n) << 32;
         this->round();
     }
 
@@ -156,9 +231,10 @@ public:
     /*
      * Assigment operators of FixedPoint numbers.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS> &
-        operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> &
+        operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        noexcept
     {
         this->num = rhs.get_num_sign_extended();
         this->round();
@@ -203,35 +279,39 @@ public:
      * Addition/subtraction of FixedPoint numbers. Result will have word length
      * equal to that of the left hand side of the operator.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS>
-        operator+(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID>
+        operator+(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_NODE_ID> &rhs)
+        const noexcept
     {
-        FixedPoint<INT_BITS, FRAC_BITS> res;
+        FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> res;
         res.num = this->get_num_sign_extended() + rhs.get_num_sign_extended();
         this->round(res.num);
         return res;
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS> &
-        operator+=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> &
+        operator+=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS,RHS_NODE_ID> &rhs)
+        noexcept
     {
         this->num = this->get_num_sign_extended() + rhs.get_num_sign_extended();
         this->round();
         return *this;
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS>
-        operator-(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID>
+        operator-(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         FixedPoint<INT_BITS, FRAC_BITS> res;
         res.num = this->get_num_sign_extended() - rhs.get_num_sign_extended();
         this->round(res.num);
         return res;
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS> &
-        operator-=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> &
+        operator-=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        noexcept
     {
         this->num = this->get_num_sign_extended() - rhs.get_num_sign_extended();
         this->round();
@@ -241,9 +321,10 @@ public:
     /*
      * Multilication of FixedPoint numbers.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS>
-        operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID>
+        operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         /*
          * Scenario 1:
@@ -292,11 +373,12 @@ public:
             return res;
         }
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS> &
-        operator*=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> &
+        operator*=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        noexcept
     {
-        FixedPoint<INT_BITS, FRAC_BITS> res{ *this * rhs };
+        FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> res{ *this * rhs };
         this->num = res.num;
         return *this;
     }
@@ -306,138 +388,76 @@ public:
      * length equal to that of the left hand side of the operator, but the
      * precision of the result will not necessary represent such a wide number.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
     FixedPoint<INT_BITS, FRAC_BITS>
-        operator/(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const
+        operator/(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const
     {
         // Note that Q(a,64) / Q(b,32) == Q(c,32).
-        FixedPoint<INT_BITS, FRAC_BITS> res{};
+        FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> res{};
         __extension__ __int128 dividend{ this->get_num_sign_extended() };
         __extension__ __int128 divisor {   rhs.get_num_sign_extended() };
         dividend <<= 32;
 
         // Create and return result. Note that Q(a,64) / Q(b,32) == Q(c,32).
         res.num = static_cast<long long>( dividend/divisor );
-        this->round(res.num);
+        this->round(res.num, true);
         return res;
     }
-    FixedPoint<INT_BITS, FRAC_BITS>
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID>
         operator/(int rhs) const
     {
-        FixedPoint<INT_BITS, FRAC_BITS> res;
+        FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> res;
         res.num = this->num / rhs;
-        this->round(res.num);
+        this->round(res.num, true);
         return res;
     }
-    FixedPoint<INT_BITS, FRAC_BITS> &
+    FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> &
         operator/=(int rhs)
     {
         this->num /= rhs;
-        this->round();
+        this->round(true);
         return *this;
     }
 
     /*
      * Comparison operators.
      */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    bool operator==(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    bool operator==(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         return this->get_num_sign_extended() == rhs.get_num_sign_extended();
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    bool operator!=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    bool operator!=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         return this->get_num_sign_extended() != rhs.get_num_sign_extended();
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    bool operator<(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    bool operator<(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         return this->get_num_sign_extended() < rhs.get_num_sign_extended();
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    bool operator<=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    bool operator<=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         return this->get_num_sign_extended() <= rhs.get_num_sign_extended();
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    bool operator>(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    bool operator>(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS,RHS_NODE_ID> &rhs)
+        const noexcept
     {
         return this->get_num_sign_extended() > rhs.get_num_sign_extended();
     }
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    bool operator>=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) const noexcept
+    template <int RHS_INT_BITS, int RHS_FRAC_BITS, int RHS_NODE_ID>
+    bool operator>=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS, RHS_NODE_ID> &rhs)
+        const noexcept
     {
         return this->get_num_sign_extended() >= rhs.get_num_sign_extended();
-    }
-};
-
-
-/*
- * FixedPointDebug class for helping print error messages on over-/underflows.
- */
-template <int INT_BITS, int FRAC_BITS>
-class FixedPointDebug : public FixedPoint<INT_BITS, FRAC_BITS>
-{
-    const char *name{nullptr};
-    void (*print_func)(const char *){nullptr};
-
-    /*
-     * Private method for testing over/underflow.
-     */
-    bool test_over_or_underflow(long long &num) const noexcept
-    {
-        // Implementation defined behaviour. We expect the result of signed
-        // right shift to be arithmetic shift (sign extending). This holds true
-        // for GCC and CLANG on tested machines. Test it yourself by running the
-        // unit test.
-        unsigned long long msb_extended = (num >> (31+INT_BITS));
-        return !( (msb_extended == -1ull) || (msb_extended == 0ull) );
-    }
-
-public:
-    /*
-     * Constructor. Takes a string 'name' and a function pointer to print over-
-     * underflow info (good for when external printfunctions are used, e.g.,
-     * mexPrintf). Passes remaining arguments to base class.
-     */
-    template <class ...Ts>
-    FixedPointDebug(const char *name, void (*print_func)(const char *), Ts ...ts)
-        : FixedPoint<INT_BITS, FRAC_BITS>(ts...),
-          name(name), print_func(print_func) { }
-
-    FixedPointDebug(const FixedPointDebug &other) = default;
-    FixedPointDebug &operator=(const FixedPointDebug &rhs) = default;
-
-    /*
-     * Overriden rounding method. This is where tests for overflow will be
-     * performed.
-     */
-    void round(long long &num) const noexcept override
-    {
-        // Perform the rounding.
-        if (FRAC_BITS < 32)
-            num += 1ll << (31-FRAC_BITS);
-
-        // Test for overflow.
-        if ( test_over_or_underflow(num) )
-        {
-            std::stringstream ss;
-            ss << (((1ull << 63) & num) ? "Underflow " : "Overflow ");
-            ss << "detected in node: '" << name << "' with value: ";
-            ss << (num >> 32) << " + " << this->get_frac_quotient(num);
-
-            num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
-            ss << ". Truncated to: " << (this->get_num_sign_extended(num) >> 32) << " + ";
-            ss << this->get_frac_quotient(num);
-            print_func(ss.str().c_str());
-        }
-        else
-        {
-            // Apply the bit mask.
-            num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
-
-        }
     }
 };
 
@@ -446,9 +466,14 @@ public:
  * Print-out to C++ stream object on the form '<int> + <frac>/<2^<frac_bits>'.
  * Good for debuging'n'stuff.
  */
-template <int INT_BITS, int FRAC_BITS>
-std::ostream &operator<<(std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
+template <int INT_BITS, int FRAC_BITS, int NODE_ID>
+std::ostream &operator<<(std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS, NODE_ID> &rhs)
 {
     long long num{ rhs.get_num_sign_extended() };
     return os << (num >> 32) << " + " << rhs.get_frac_quotient();
 }
+
+/*
+ * Header guard end if.
+ */
+#endif
