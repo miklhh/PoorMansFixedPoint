@@ -179,7 +179,7 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
     {
         std::stringstream result{};
         FixedPoint<8,10> fix_a = { 3.0 };
-        FixedPoint<8,12> fix_b = { 2.0 };
+        FixedPoint<7,12> fix_b = { 2.0 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("6 + 0/4096"));
     }
@@ -193,21 +193,21 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
     {
         std::stringstream result{};
         FixedPoint<10,10> fix_a = { -7.02 }; // (-7.01953) when rounded.
-        FixedPoint<10,10> fix_b = { 1.925 }; // ( 1.92480) when rounded.
+        FixedPoint<14,10> fix_b = { 1.925 }; // ( 1.92480) when rounded.
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("-14 + 501/1024"));
     }
     {
         std::stringstream result{};
-        FixedPoint<10,10> fix_a = { 3.25 };
-        FixedPoint<12,12> fix_b = { -1.925 };
+        FixedPoint<9,10> fix_a = { 3.25 };
+        FixedPoint<11,12> fix_b = { -1.925 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("-7 + 3046/4096"));
     }
     {
         std::stringstream result{};
         FixedPoint<10,10> fix_a = { -3.25 };
-        FixedPoint<12,12> fix_b = { -1.925 };
+        FixedPoint<19,12> fix_b = { -1.925 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("6 + 1050/4096"));
     }
@@ -228,10 +228,24 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
      */
     {
         std::stringstream result{};
-        FixedPoint<20,21> fix_a = { 1050.239 };
-        FixedPoint<20,21> fix_b = { 238.052 };
+        FixedPoint<25,21> fix_a = { 1050.239 };
+        FixedPoint<20,21> fix_b = {  238.052 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("250011 + 1036913/2097152"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<27,21> fix_a = { 15.25 };
+        FixedPoint<18,17> fix_b = { -4.75 };
+        result << fix_b * fix_a;
+        REQUIRE(result.str() == std::string("-73 + 73728/131072"));
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<27,21> fix_a = { -15.25 };
+        FixedPoint<18,17> fix_b = {   4.75 };
+        result << fix_b * fix_a;
+        REQUIRE(result.str() == std::string("-73 + 73728/131072"));
     }
 
     /* 
@@ -240,7 +254,7 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
     {
         std::stringstream result{};
         FixedPoint<22,5> fix_a = { 2 };
-        FixedPoint<22,9> fix_b = { 524288.0 };
+        FixedPoint<27,9> fix_b = { 524288.0 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("1048576 + 0/512"));
     }
