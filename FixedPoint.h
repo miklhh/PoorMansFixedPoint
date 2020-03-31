@@ -91,11 +91,12 @@ protected:
         {
             std::stringstream ss{};
             ss << (((1ull << 63) & num) ? "Underflow " : "Overflow ");
-            ss << "detected in node with id: '" << NODE_ID << "' with value: ";
+            ss << "in node <" << INT_BITS << "," << FRAC_BITS << "> with id: '";
+            ss << NODE_ID << "' of value: ";
             ss << (num >> 32) << " + " << this->get_frac_quotient(num);
 
             num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
-            ss << ". Truncated to: " << (this->get_num_sign_extended(num) >> 32);
+            ss << ", truncated to: " << (this->get_num_sign_extended(num) >> 32);
             ss << " + " << this->get_frac_quotient(num);
             _DEBUG_PRINT_FUNC(ss.str().c_str());
         }
