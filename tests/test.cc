@@ -33,7 +33,7 @@ TEST_CASE("Assigment of FixedPoint values (just need to compile).")
 
 TEST_CASE("Unary negation.")
 {
-    /* 
+    /*
      * Test all 'sides'.
      */
     {
@@ -248,7 +248,7 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
         REQUIRE(result.str() == std::string("-73 + 73728/131072"));
     }
 
-    /* 
+    /*
      * Some more tests.
      */
     {
@@ -309,21 +309,21 @@ TEST_CASE("Approximate pi using Leibniz formula")
     const double pi = 3.1415926535;
     const int ITERATIONS=10000000;
 
-    int divisor = 3;
-    FixedPoint<3,32> pi_fixed{4.0};
+    FixedPoint<4,32,5> pi_fixed{ 4.0 };
+    FixedPoint<30,0> divisor{ 3.0 };
     for (int i=0; i<ITERATIONS; ++i)
     {
         if (i % 2)
         {
             // Odd iteration.
-            pi_fixed += FixedPoint<3,30>{4.0}/divisor;
+            pi_fixed += FixedPoint<4,32>{4.0}/divisor;
         }
         else
         {
             // Even iteration.
-            pi_fixed -= FixedPoint<3,30>{4.0}/divisor;
+            pi_fixed -= FixedPoint<4,32>{4.0}/divisor;
         }
-        divisor += 2;
+        divisor += FixedPoint<3,0>{2};
     }
 
     std::cout << std::endl;
@@ -484,7 +484,7 @@ TEST_CASE("Simple comparison test.")
 
 TEST_CASE("Assignment where the wordlength changes.")
 {
-    /* 
+    /*
      * Test constructors.
      */
     {
@@ -513,3 +513,8 @@ TEST_CASE("Assignment where the wordlength changes.")
     }
 }
 
+TEST_CASE("Under-/Overflow tests (most for verifying compilation works).")
+{
+    FixedPoint<4,2,1> fix_a{ 7.50 };
+    fix_a * FixedPoint<4,2,9>{ 0.50 };
+}
