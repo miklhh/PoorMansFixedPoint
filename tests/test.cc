@@ -309,8 +309,8 @@ TEST_CASE("Approximate pi using Leibniz formula")
     const double pi = 3.1415926535;
     const int ITERATIONS=10000000;
 
-    FixedPoint<4,32,5> pi_fixed{ 4.0 };
-    FixedPoint<30,0> divisor{ 3.0 };
+    FixedPoint<4,32> pi_fixed{ 4.0 };
+    FixedPoint<32,0> divisor{ 3.0 };
     for (int i=0; i<ITERATIONS; ++i)
     {
         if (i % 2)
@@ -511,10 +511,4 @@ TEST_CASE("Assignment where the wordlength changes.")
         b = 0; b = b_longer;
         REQUIRE( (a == a_longer && b == b_longer) );
     }
-}
-
-TEST_CASE("Under-/Overflow tests (most for verifying compilation works).")
-{
-    FixedPoint<4,2,1> fix_a{ 7.50 };
-    fix_a * FixedPoint<4,2,9>{ 0.50 };
 }
