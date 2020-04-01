@@ -1,9 +1,32 @@
 /*
- * PoorMansFixedPoint header only C++ fixed point module. It supports fixed
- * point numbers of varying length and the most basic arithmetic functions
- * +,-,*,/ with proper rounding.
+ * PoorMansFixedPoint header only C++ fixed point module. The fixed point
+ * implementation supports numbers of varying integer and fractional lengths
+ * and it employs the most basic arithmetic functions +,-,*,/ with proper
+ * rounding.
  *
- * Author: Mikael Henriksson
+ * For the penalty of some greater run-time, the user can enable over-/underflow
+ * checks by compiling the header with preprocessor macro
+ * '_DEBUG_SHOW_OVERFLOW_INFO' defined (commandline option
+ * '-D_DEBUG_SHOW_OVERFLOW_INFO' for GCC or CLANG) which will display some
+ * over-/underflow info during execution.
+ *
+ * CAVIATS:
+ *
+ *   * For rounding to work properly, the fractional part of the FixedPoint
+ *     number has to be strictly less than 32 bits. For numbers with 32
+ *     fractional bits, the result will round towards -INF.
+ *
+ *   * The implementation requires support for the compiler extension '__int128'
+ *     which is used for longer fixed point multiplications and divisions. As
+ *     far as I know, this feature is not supported by the Visual C++ compiler.
+ *
+ *   * The implementation makes use of some implementation defined behaviour, in
+ *     that is depends on right shifts of signed integers to realize arithmetic
+ *     shifts. This is the default behaviour of many modern compilers, and if
+ *     your compiler does not support this functionality, the code will generate
+ *     a compile time error through a static assertion.
+ *
+ * Author: Mikael Henriksson [www.github.com/miklhh]
  */
 
 #ifndef _POOR_MANS_FIXED_POINT_H
@@ -14,13 +37,24 @@
 #include <cmath>
 
 /*
+ * Test for compiler support of the __int128 integer data type. As of yet there
+ * is no fallback for the lack of this functionality.
+ */
+#if ( !defined( __SIZEOF_INT128__) )
+    #error "PoorMansFixedPoint: no support for extension __int128 detected."
+#else
+    static_assert( sizeof(void *) >= 8,
+           "PoorMansFixedPoint: no support for extension __int128 detected.");
+#endif
+
+/*
  * Debuging stuff for being able to display over-/underflows.
  */
 #ifdef _DEBUG_SHOW_OVERFLOW_INFO
     #include <sstream>
 
     /*
-     * If using this debuging functionallity, define in this function how an
+     * If using this debuging functionality, define in this function how an
      * output string should be passed to the user.
      */
     #include <iostream>
@@ -29,15 +63,24 @@
         // Example debug feed forward.
         std::cerr << str << std::endl;
     }
-
 #endif
 
+
+/*
+ * Type FixedPoint begin.
+ */
 template <int INT_BITS, int FRAC_BITS>
 class FixedPoint
 {
-    static_assert(INT_BITS <= 32, "Integer bits need to be less than or equal to 32 bits.");
-    static_assert(FRAC_BITS <= 32, "Fractional bits need to be less than or equal to 32 bits.");
-    static_assert(INT_BITS + FRAC_BITS > 0, "Need at least one bit of representation.");
+    /*
+     * Constraints put on the FixedPoint numbers by this implementaiton.
+     */
+    static_assert(INT_BITS <= 32,
+            "Integer bits need to be less than or equal to 32 bits.");
+    static_assert(FRAC_BITS <= 32,
+            "Fractional bits need to be less than or equal to 32 bits.");
+    static_assert(INT_BITS + FRAC_BITS > 0,
+            "Need at least one bit of representation.");
 
     /*
      * We rely on right shift of signed long long integers to be equivilant with
@@ -46,7 +89,8 @@ class FixedPoint
      * but for current standards (<= C++17) right shifting of signed integers is
      * implementation defined.
      */
-    static_assert( (-2ll >> 1) == -1ll, "We rely on signed right shifts to be arithmetic." );
+    static_assert( (-2ll >> 1) == -1ll,
+            "We rely on signed right shifts to be arithmetic." );
 
 protected:
     /*
@@ -466,6 +510,7 @@ std::ostream &operator<<(
 }
 
 /*
- * Header guard end if.
+ * Include guard end.
  */
 #endif
+
