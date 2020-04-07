@@ -108,14 +108,6 @@ protected:
     friend class FixedPoint;
 
     /*
-     * Friend declaration for stream output method.
-     */
-    template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    friend std::ostream &
-        operator<<(std::ostream &os,
-                   const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs);
-
-    /*
      * Private rounding method. This method will round the result of some
      * operation to the closed fixed point number in the current representation.
      * It also contains support for displaying over-/underflows, see code.
@@ -127,7 +119,6 @@ protected:
          */
         if (FRAC_BITS < 32)
             this->num += 1ll << (31-FRAC_BITS);
-
 
     #ifdef _DEBUG_SHOW_OVERFLOW_INFO
         /*
@@ -257,6 +248,16 @@ public:
         string numerator = to_string((this->num & 0xFFFFFFFF)>>(32-FRAC_BITS));
         string denominator = to_string(1ll << FRAC_BITS);
         return numerator + "/" + denominator;
+    }
+
+    /*
+     * To string function, good for FixedPoint printouts.
+     */
+    std::string to_string() const noexcept
+    {
+        long long num{ this->get_num_sign_extended() };
+        std::string res{ std::to_string(num >> 32) };
+        return res += std::string(" + ") += this->get_frac_quotient();
     }
 
     /*
@@ -498,6 +499,7 @@ public:
     {
         return this->get_num_sign_extended() >= rhs.get_num_sign_extended();
     }
+
 };
 
 
@@ -509,8 +511,7 @@ template <int INT_BITS, int FRAC_BITS>
 std::ostream &operator<<(
         std::ostream &os, const FixedPoint<INT_BITS, FRAC_BITS> &rhs)
 {
-    long long num{ rhs.get_num_sign_extended() };
-    return os << (num >> 32) << " + " << rhs.get_frac_quotient();
+    return os << rhs.to_string();
 }
 
 /*
