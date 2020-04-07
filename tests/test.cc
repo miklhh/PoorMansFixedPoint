@@ -178,47 +178,47 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
      */
     {
         std::stringstream result{};
-        FixedPoint<8,10> fix_a = { 3.0 };
-        FixedPoint<7,12> fix_b = { 2.0 };
+        FixedPoint<8,10> fix_a{ 3.0 };
+        FixedPoint<7,12> fix_b{ 2.0 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("6 + 0/4096"));
     }
     {
         std::stringstream result{};
-        FixedPoint<10,10> fix_a = { 3.25 };
-        FixedPoint<12,12> fix_b = { 1.925 };
+        FixedPoint<10,10> fix_a{ 3.25 };
+        FixedPoint<12,12> fix_b{ 1.925 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("6 + 1050/4096"));
     }
     {
         std::stringstream result{};
-        FixedPoint<10,10> fix_a = { -7.02 }; // (-7.01953) when rounded.
-        FixedPoint<14,10> fix_b = { 1.925 }; // ( 1.92480) when rounded.
+        FixedPoint<10,10> fix_a{ -7.02 }; // (-7.01953) when rounded.
+        FixedPoint<14,10> fix_b{ 1.925 }; // ( 1.92480) when rounded.
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("-14 + 501/1024"));
     }
     {
         std::stringstream result{};
-        FixedPoint<9,10> fix_a = { 3.25 };
-        FixedPoint<11,12> fix_b = { -1.925 };
+        FixedPoint<9,10> fix_a{ 3.25 };
+        FixedPoint<11,12> fix_b{ -1.925 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("-7 + 3046/4096"));
     }
     {
         std::stringstream result{};
-        FixedPoint<10,10> fix_a = { -3.25 };
-        FixedPoint<19,12> fix_b = { -1.925 };
+        FixedPoint<10,10> fix_a{ -3.25 };
+        FixedPoint<19,12> fix_b{ -1.925 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("6 + 1050/4096"));
     }
 
     /*
-     * Mulitplication with zero always equals zero.
+     * Mulitplication with zero should equal zero.
      */
     {
         std::stringstream result{};
-        FixedPoint<10,10> fix_a = { -3.25 };
-        FixedPoint<12,12> fix_b = { 0 };
+        FixedPoint<10,10> fix_a{ -3.25 };
+        FixedPoint<12,12> fix_b{ 0 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("0 + 0/4096"));
     }
@@ -228,22 +228,22 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
      */
     {
         std::stringstream result{};
-        FixedPoint<25,21> fix_a = { 1050.239 };
-        FixedPoint<20,21> fix_b = {  238.052 };
+        FixedPoint<25,21> fix_a{ 1050.239 };
+        FixedPoint<20,21> fix_b{  238.052 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("250011 + 1036913/2097152"));
     }
     {
         std::stringstream result{};
-        FixedPoint<27,21> fix_a = { 15.25 };
-        FixedPoint<18,17> fix_b = { -4.75 };
+        FixedPoint<27,21> fix_a{ 15.25 };
+        FixedPoint<18,17> fix_b{ -4.75 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("-73 + 73728/131072"));
     }
     {
         std::stringstream result{};
-        FixedPoint<27,21> fix_a = { -15.25 };
-        FixedPoint<18,17> fix_b = {   4.75 };
+        FixedPoint<27,21> fix_a{ -15.25 };
+        FixedPoint<18,17> fix_b{   4.75 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("-73 + 73728/131072"));
     }
@@ -253,8 +253,8 @@ TEST_CASE("Multiplication of Fixed Point Numbers")
      */
     {
         std::stringstream result{};
-        FixedPoint<22,5> fix_a = { 2 };
-        FixedPoint<27,9> fix_b = { 524288.0 };
+        FixedPoint<22,5> fix_a{ 2 };
+        FixedPoint<27,9> fix_b{ 524288.0 };
         result << fix_b * fix_a;
         REQUIRE(result.str() == std::string("1048576 + 0/512"));
     }
@@ -268,8 +268,8 @@ TEST_CASE("Fixed point division")
      */
     {
         std::stringstream result{};
-        FixedPoint<13,22> fix_a = { 7.60 };
-        FixedPoint<14,17> fix_b = { 3.40 };
+        FixedPoint<13,22> fix_a{ 7.60 };
+        FixedPoint<14,17> fix_b{ 3.40 };
         result << fix_a/fix_b;
         REQUIRE(result.str() == std::string("2 + 986891/4194304"));
     }
@@ -279,22 +279,22 @@ TEST_CASE("Fixed point division")
      */
     {
         std::stringstream result{};
-        FixedPoint<6,23> fix_a = { -7.60 };
-        FixedPoint<5,20> fix_b = { 3.40 };
+        FixedPoint<6,23> fix_a{ -7.60 };
+        FixedPoint<5,20> fix_b{ 3.40 };
         result << fix_a/fix_b;
         REQUIRE(result.str() == std::string("-3 + 6414816/8388608"));
     }
     {
         std::stringstream result{};
-        FixedPoint<6,23> fix_a = { 7.60 };
-        FixedPoint<5,20> fix_b = { -3.40 };
+        FixedPoint<6,23> fix_a{ 7.60 };
+        FixedPoint<5,20> fix_b{ -3.40 };
         result << fix_a/fix_b;
         REQUIRE(result.str() == std::string("-3 + 6414816/8388608"));
     }
     {
         std::stringstream result{};
-        FixedPoint<10,23> fix_a = { -7.60 };
-        FixedPoint<5,25> fix_b = { -3.40 };
+        FixedPoint<10,23> fix_a{ -7.60 };
+        FixedPoint<5,25> fix_b{ -3.40 };
         result << fix_a/fix_b;
         REQUIRE(result.str() == std::string("2 + 1973790/8388608"));
     }
@@ -347,10 +347,10 @@ TEST_CASE("Approximate e with Bernoulli limit.")
      * is no point of taking this algorithm further then it is already taken, it
      * won't yield more significant digits.
      */
-    const int ITERATIONS=50000;
+    const int ITERATIONS=99500;
     const double e = 2.71828183;
-    FixedPoint<3,30> product_fixed{ 1.0 + 1.0/static_cast<double>(ITERATIONS) };
-    FixedPoint<3,30> e_fixed{ 1.0 };
+    FixedPoint<3,32> product_fixed{ 1.0 + 1.0/static_cast<double>(ITERATIONS) };
+    FixedPoint<3,32> e_fixed{ 1.0 };
     for (int i=0; i<ITERATIONS; ++i)
     {
         e_fixed *= product_fixed;
@@ -360,8 +360,8 @@ TEST_CASE("Approximate e with Bernoulli limit.")
     std::cout << "    Fixed     (decimal form) : " << static_cast<double>(e_fixed) << std::endl;
     std::cout << "    Reference (decimal form) : " << e << std::endl << std::endl;
 
-    // We can acquire around 5 significant digits using this method.
-    REQUIRE(std::abs(static_cast<double>(e_fixed) - e) < 0.0001);
+    // We can acquire around 6 significant digits using this method.
+    REQUIRE(std::abs(static_cast<double>(e_fixed) - e) < 0.00001);
 
 }
 
@@ -510,5 +510,27 @@ TEST_CASE("Assignment where the wordlength changes.")
         a = 0; a = a_longer;
         b = 0; b = b_longer;
         REQUIRE( (a == a_longer && b == b_longer) );
+    }
+}
+
+TEST_CASE("Overflow tests")
+{
+    {
+        std::stringstream result{};
+        FixedPoint<5,5> fix_a{ 10.0 };
+        FixedPoint<1,2> fix_b{ 0.25 };
+
+        // Result = 40, trucanted to 8.
+        result << fix_a / fix_b;
+        REQUIRE( result.str() == std::string("8 + 0/32") );
+    }
+    {
+        std::stringstream result{};
+        FixedPoint<10,10> fix_a{ -511.0 };
+        FixedPoint<10,10> fix_b{    1.0 };
+        FixedPoint<10,10> fix_c{    2.0 };
+
+        result << (fix_a - fix_b) << "|" << (fix_a - fix_c);
+        REQUIRE( result.str() == std::string("-512 + 0/1024|511 + 0/1024") );
     }
 }

@@ -84,7 +84,7 @@ class FixedPoint
 
     /*
      * We rely on right shift of signed long long integers to be equivilant with
-     * arithmetic right shift. When writting this comment, this is proposed to
+     * arithmetic right shifts. When writting this comment, this is proposed to
      * be the standard behaviour of right shifts in the C++20 standard draft,
      * but for current standards (<= C++17) right shifting of signed integers is
      * implementation defined.
@@ -153,12 +153,11 @@ protected:
         {
             this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
         }
-
     #else
         /*
          * Debugmode disabled. Just apply the bitmask.
          */
-        this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32 - FRAC_BITS);
+        this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
     #endif
     }
 
@@ -183,6 +182,8 @@ protected:
      */
     bool test_over_or_underflow() const noexcept
     {
+        //using uns_ll = unsigned long long;
+        //uns_ll msb_extended = (this->get_num_sign_extended() >> (31+INT_BITS));
         unsigned long long msb_extended = (this->num >> (31+INT_BITS));
         return !( (msb_extended == -1ull) || (msb_extended == 0ull) );
     }
@@ -196,21 +197,24 @@ public:
      * if the number cannot fit into the FixedPoint type, it will be truncated.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
-        noexcept
+    FixedPoint(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
     {
         this->num = rhs.get_num_sign_extended();
         this->round();
     }
     FixedPoint(const FixedPoint<INT_BITS, FRAC_BITS> &rhs) noexcept
     {
+        /*
+         * Initialization from FixedPoint numbers with same length dont need
+         * rounding.
+         */
         this->num = rhs.num;
     }
 
     /*
      * Constructor for floating point number inputs.
      */
-    FixedPoint(double a)
+    explicit FixedPoint(double a)
     {
         this->num = std::llround(a * static_cast<double>(1ll << 32));
         this->round();
@@ -219,7 +223,7 @@ public:
     /*
      * Constructor from integers.
      */
-    FixedPoint(int n)
+    explicit FixedPoint(int n) noexcept
     {
         this->num = static_cast<long long>(n) << 32;
         this->round();
@@ -228,7 +232,7 @@ public:
     /*
      * Constructor for setting the bit pattern of a FixedPoint number.
      */
-    FixedPoint(int i, unsigned f) noexcept
+    explicit FixedPoint(int i, unsigned f) noexcept
     {
         this->num = (static_cast<long long>(i) << 32) | (0xFFFFFFFFll & num);
         this->num &= 0xFFFFFFFF00000000ll;
@@ -260,7 +264,7 @@ public:
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> &
-        operator=(const FixedPoint<RHS_INT_BITS,RHS_FRAC_BITS> &rhs) noexcept
+        operator=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
     {
         this->num = rhs.get_num_sign_extended();
         this->round();
