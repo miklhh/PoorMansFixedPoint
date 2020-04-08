@@ -277,13 +277,6 @@ public:
         this->num = rhs.num;
         return *this;
     }
-    FixedPoint<INT_BITS, FRAC_BITS> &
-        operator=(int rhs) noexcept
-    {
-        this->num = static_cast<long long>(rhs) << 32;
-        this->round();
-        return *this;
-    }
 
     /*
      * (explicit) Conversion to floating point number.

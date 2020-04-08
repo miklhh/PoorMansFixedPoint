@@ -507,8 +507,8 @@ TEST_CASE("Assignment where the wordlength changes.")
         a_longer = a;
         b_longer = b;
         REQUIRE( (a == a_longer && b == b_longer) );
-        a = 0; a = a_longer;
-        b = 0; b = b_longer;
+        a = FixedPoint<1,0>(0); a = a_longer;
+        b = FixedPoint<1,0>(0); b = b_longer;
         REQUIRE( (a == a_longer && b == b_longer) );
     }
 }
@@ -534,3 +534,4 @@ TEST_CASE("Overflow tests")
         REQUIRE( result.str() == std::string("-512 + 0/1024|511 + 0/1024") );
     }
 }
+
