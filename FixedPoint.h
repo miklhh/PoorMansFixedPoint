@@ -137,7 +137,7 @@ protected:
 
             // Apply bitmask and print truncated result.
             if (INT_BITS+FRAC_BITS < 64)
-                this->num &= ((1ll<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
+                this->num &= ((1ull<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
             ss << "truncated to: " << (this->get_num_sign_extended() >> 32);
             ss << " + " << this->get_frac_quotient();
             _DEBUG_PRINT_FUNC(ss.str().c_str());
@@ -145,14 +145,14 @@ protected:
         else
         {
             if (INT_BITS+FRAC_BITS < 64)
-                this->num &= ((1ll<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
+                this->num &= ((1ull<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
         }
     #else
         /*
          * Debugmode disabled. Just apply the bitmask.
          */
         if (INT_BITS+FRAC_BITS < 64)
-            this->num &= ((1ll<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
+            this->num &= ((1ull<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
     #endif
     }
 
