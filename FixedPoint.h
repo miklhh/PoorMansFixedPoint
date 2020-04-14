@@ -177,8 +177,6 @@ protected:
      */
     bool test_over_or_underflow() const noexcept
     {
-        //using uns_ll = unsigned long long;
-        //uns_ll msb_extended = (this->get_num_sign_extended() >> (31+INT_BITS));
         unsigned long long msb_extended = (this->num >> (31+INT_BITS));
         return !( (msb_extended == -1ull) || (msb_extended == 0ull) );
     }
@@ -446,22 +444,6 @@ public:
         // Rounding is performed in operator/().
         FixedPoint<INT_BITS, FRAC_BITS> res{ *this / rhs };
         this->num = res.num;
-        return *this;
-    }
-
-    FixedPoint<INT_BITS, FRAC_BITS>
-        operator/(int rhs) const
-    {
-        FixedPoint<INT_BITS, FRAC_BITS> res;
-        res.num = this->num / rhs;
-        res.round();
-        return res;
-    }
-    FixedPoint<INT_BITS, FRAC_BITS> &
-        operator/=(int rhs)
-    {
-        this->num /= rhs;
-        this->round();
         return *this;
     }
 

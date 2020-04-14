@@ -19,7 +19,7 @@ TEST_CASE("Instance going out of scope should reset value.")
     {
         FixedPoint<10,12> fix{ 0.0 };
         fix += FixedPoint<10,12>(i);
-        fix /= 2;
+        fix /= FixedPoint<3,0>(2);
         REQUIRE( static_cast<double>(fix) == static_cast<double>(i) / 2 );
     }
 }
