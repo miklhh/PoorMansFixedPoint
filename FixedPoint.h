@@ -404,6 +404,10 @@ public:
             return res;
         }
     }
+    /*
+     * NOTE: Result of this operator will not change the wordlength of the the
+     * number.
+     */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
     FixedPoint<INT_BITS, FRAC_BITS> &
         operator*=(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs) noexcept
