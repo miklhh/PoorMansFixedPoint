@@ -35,6 +35,7 @@
 #include <ostream>
 #include <string>
 #include <cmath>
+#include <algorithm>
 
 /*
  * Test for compiler support of the __int128 integer data type. As of yet there
@@ -135,20 +136,23 @@ protected:
             ss << this->get_frac_quotient() << ", ";
 
             // Apply bitmask and print truncated result.
-            this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
+            if (INT_BITS+FRAC_BITS < 64)
+                this->num &= ((1ll<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
             ss << "truncated to: " << (this->get_num_sign_extended() >> 32);
             ss << " + " << this->get_frac_quotient();
             _DEBUG_PRINT_FUNC(ss.str().c_str());
         }
         else
         {
-            this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
+            if (INT_BITS+FRAC_BITS < 64)
+                this->num &= ((1ll<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
         }
     #else
         /*
          * Debugmode disabled. Just apply the bitmask.
          */
-        this->num &= ((1ll << (INT_BITS+FRAC_BITS)) - 1) << (32-FRAC_BITS);
+        if (INT_BITS+FRAC_BITS < 64)
+            this->num &= ((1ll<<(INT_BITS+FRAC_BITS))-1) << (32-FRAC_BITS);
     #endif
     }
 
@@ -341,14 +345,20 @@ public:
     }
 
     /*
-     * Multilication of FixedPoint numbers. Result will have word length equal
-     * to that of left hand side operand.
+     * Multilication of FixedPoint numbers. Result will have an integer and
+     * fractional wordlength equal to that of the sum of left hand side and
+     * right hand side operand integer and fractional wordlengths, but no
+     * longer than <32,32>.
      */
     template <int RHS_INT_BITS, int RHS_FRAC_BITS>
-    FixedPoint<INT_BITS, FRAC_BITS>
+    FixedPoint<std::min(INT_BITS+RHS_INT_BITS, 32),
+               std::min(FRAC_BITS+RHS_FRAC_BITS, 32)>
         operator*(const FixedPoint<RHS_INT_BITS, RHS_FRAC_BITS> &rhs)
         const noexcept
     {
+        FixedPoint<std::min(INT_BITS+RHS_INT_BITS, 32),
+                   std::min(FRAC_BITS+RHS_FRAC_BITS, 32)> res{};
+
         /*
          * Scenario 1:
          * The entire result of the multiplication can fit into one 64-bit
@@ -356,7 +366,6 @@ public:
          */
         if (INT_BITS+FRAC_BITS <= 32 && RHS_INT_BITS+RHS_FRAC_BITS <= 32)
         {
-            FixedPoint<INT_BITS, FRAC_BITS> res{};
             long long op_a{ this->get_num_sign_extended() >> INT_BITS     };
             long long op_b{   rhs.get_num_sign_extended() >> RHS_INT_BITS };
             res.num = op_a * op_b;
@@ -385,7 +394,6 @@ public:
         {
             // Utilize the compiler extension of 128-bit wide integers to be
             // able to store the exact result.
-            FixedPoint<INT_BITS, FRAC_BITS> res{};
             __extension__ __int128 op_a{ this->get_num_sign_extended() };
             __extension__ __int128 op_b{   rhs.get_num_sign_extended() };
             __extension__ __int128 res_128{ op_a * op_b };
